@@ -1,0 +1,46 @@
+services:
+  php:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    volumes:
+      - .:/var/www/app:cached
+    environment:
+      - DATABASE_URL=mysql://app:app@database:3306/app?serverVersion=10.11.0-MariaDB&charset=utf8mb4
+    depends_on:
+      database:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - .:/var/www/app:cached
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - php
+
+  database:
+    image: mariadb:10.11
+    environment:
+      - MARIADB_DATABASE=app
+      - MARIADB_USER=app
+      - MARIADB_PASSWORD=app
+      - MARIADB_ROOT_PASSWORD=root
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - database_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  database_data:
+  caddy_data:
+  caddy_config:
