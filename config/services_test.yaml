@@ -1,0 +1,14 @@
+imports:
+  - { resource: 'services.yaml' }
+
+services:
+    test.log.handler:
+        public: false
+        class: 'Monolog\Handler\TestHandler'
+
+    test.log.logger:
+        public: true
+        class: 'Monolog\Logger'
+        arguments:
+            - 'test'
+            - ['@test.log.handler']

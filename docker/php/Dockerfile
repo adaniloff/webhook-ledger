@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y \
     zip \
     pdo_mysql \
     opcache \
+    && pecl install xdebug \
+    && docker-php-ext-enable xdebug \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -18,5 +20,6 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/app
 
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/app.ini
+COPY docker/php/xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
 
 CMD ["php-fpm"]

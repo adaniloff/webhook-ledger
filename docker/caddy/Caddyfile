@@ -1,4 +1,5 @@
-:80 {
+localhost:443, localhost:80 {
+    tls internal
     root * /var/www/app/public
     encode gzip
 
