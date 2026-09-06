@@ -1,5 +1,5 @@
 imports:
-  - { resource: 'services.yaml' }
+    - { resource: "services.yaml" }
 
 services:
     test.log.handler:
@@ -9,6 +9,7 @@ services:
     test.log.logger:
         public: true
         class: 'Monolog\Logger'
+        decorates: "logger"
         arguments:
-            - 'test'
-            - ['@test.log.handler']
+            - "test"
+            - ["@test.log.handler"]

@@ -2,6 +2,8 @@
 
 namespace App\Tests\Controller;
 
+use App\Dto\WebhookDto;
+use App\Enum\SourceEnum;
 use Monolog\Handler\TestHandler;
 use Monolog\Level;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -21,16 +23,30 @@ final class WebhookControllerTest extends WebTestCase
     public function testHookLogsAndReturns202(): void
     {
         // Arrange
+        $dto = new WebhookDto(external_event_id: '72dae7da-40a7-4744-b8a2-beb413579c40');
         // Act
-        $this->client->request(method: 'POST', uri: '/webhook/stripe', content: $payload = '{"processed":true}');
+        $this->client->jsonRequest(
+            method: 'POST',
+            uri: '/webhook/stripe',
+            parameters: $payload = [
+                'external_event_id' => $dto->external_event_id,
+            ],
+        );
 
         // Assert
-        $this->logger->hasRecordThatContains(message: 'REQUEST BODY', level: Level::Info);
-        $this->logger->hasRecordThatContains(message: $payload, level: Level::Info);
-
         // response ...
         $this->assertResponseIsSuccessful();
         $this->assertResponseStatusCodeSame(202);
         $this->assertEmpty($this->client->getResponse()->getContent());
+        // logs ...
+        $this->assertTrue(
+            $this->logger->hasRecordThatContains(message: 'REQUEST BODY', level: Level::Debug),
+        );
+        $this->assertTrue(
+            $this->logger->hasRecordThatContains(message: 'source: '.SourceEnum::STRIPE->value, level: Level::Debug),
+        );
+        $this->assertTrue(
+            $this->logger->hasRecordThatContains(message: 'payload: '.serialize($dto), level: Level::Debug),
+        );
     }
 }

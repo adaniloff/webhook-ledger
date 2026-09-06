@@ -5,6 +5,7 @@ namespace App\Tests\Controller;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManager;
 use Monolog\Handler\TestHandler;
+use Monolog\Level;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -31,7 +32,9 @@ final class HealthControllerTest extends WebTestCase
         $this->assertResponseIsSuccessful();
         $this->assertResponseStatusCodeSame(204);
         $this->assertEmpty($this->client->getResponse()->getContent());
-        $this->logger->hasErrorThatContains('Error, the connection is closed');
+        $this->assertFalse(
+            $this->logger->hasRecordThatContains(message: 'Error, the connection is closed', level: Level::Error),
+        );
     }
 
     public function testHealthCheckReturns503(): void
@@ -45,18 +48,20 @@ final class HealthControllerTest extends WebTestCase
         // Assert
         $this->assertResponseStatusCodeSame(503);
         $this->assertEmpty($this->client->getResponse()->getContent());
-        $this->logger->hasErrorThatContains('Error, the connection is closed');
+        $this->assertTrue(
+            $this->logger->hasRecordThatContains(message: 'Error, the connection is closed', level: Level::Error),
+        );
     }
 
     private function setupDBConnection(bool $connected): void
     {
         $connection = $this->getMockBuilder(Connection::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['isConnected'])
+            ->onlyMethods(['getDatabase'])
             ->getMock();
         $connection->expects($this->any())
-            ->method('isConnected')
-            ->willReturn($connected);
+            ->method('getDatabase')
+            ->willReturn($connected ? 'test-app' : null);
         $mock = $this->getMockBuilder(EntityManager::class)
             ->disableOriginalConstructor()
             ->onlyMethods(['getConnection', 'clear'])
