@@ -36,8 +36,7 @@ when@prod:
                 type: fingers_crossed
                 action_level: error
                 handler: error_log_handler
-                excluded_404s:
-                    - ^/
+                excluded_http_codes: [404]
 
             error_log_handler:
                 type: error_log
