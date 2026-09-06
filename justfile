@@ -35,6 +35,9 @@ php-console *args:
 php-cache-clear *args:
     docker compose exec php bin/console ca:cl {{args}}
 
+php-stan *args:
+    docker compose exec php ./vendor/bin/phpstan analyse src --level=max {{args}}
+
 php-lint *args:
     docker compose exec php ./vendor/bin/php-cs-fixer {{args}}
 
@@ -58,4 +61,5 @@ alias sh := php-sh
 alias comp := php-composer
 alias console := php-console
 alias cs := php-lint
+alias stan := php-stan
 alias test := php-test

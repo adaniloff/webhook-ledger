@@ -19,6 +19,6 @@ final class WebhookController extends AbstractController
     {
         $this->logger->info(sprintf('REQUEST BODY <%s>', json_encode($request->getPayload()->all())));
 
-        return new Response(content: false, status: 202);
+        return new Response(content: '', status: 202);
     }
 }

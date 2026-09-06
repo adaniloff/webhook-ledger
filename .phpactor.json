@@ -8,5 +8,6 @@
         "/var/cache/**/*",
         "/vendor/composer/**/*",
         "/vendor/**/*.phar/**/*"
-    ]
+    ],
+    "language_server_phpstan.enabled": false
 }

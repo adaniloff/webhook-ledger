@@ -25,9 +25,9 @@ final class HealthController extends AbstractController
         }
 
         if (!$isConnected) {
-            return new Response(content: false, status: 503);
+            return new Response(content: '', status: 503);
         }
 
-        return new Response(content: false, status: 204);
+        return new Response(content: '', status: 204);
     }
 }
