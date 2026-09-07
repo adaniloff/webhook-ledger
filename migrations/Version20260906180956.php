@@ -26,7 +26,7 @@ final class Version20260906180956 extends AbstractMigration
             headers JSON NOT NULL,
             signature_valid TINYINT NOT NULL,
             status VARCHAR(255) NOT NULL,
-            attemps INT NOT NULL,
+            attempts INT NOT NULL,
             last_error LONGTEXT DEFAULT NULL,
             received_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,

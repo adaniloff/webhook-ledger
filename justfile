@@ -47,6 +47,10 @@ php-test *args:
 _list:
     @just -l
 
+# internal - reindex phpactor (ex: after a composer update)
+ide-reindex:
+    php ~/.local/share/nvim/mason/packages/phpactor/phpactor.phar index:build --reset --working-dir=$(pwd)
+
 # internal - assign free host ports to .env.local if not already set
 _ensure-ports:
     @bash docker/ensure-ports.sh

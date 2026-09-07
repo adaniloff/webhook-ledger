@@ -39,7 +39,7 @@ class WebhookEvent
     private ?StatusEnum $status = null;
 
     #[ORM\Column]
-    private ?int $attemps = null;
+    private ?int $attempts = null;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $last_error = null;
@@ -149,14 +149,14 @@ class WebhookEvent
         return $this;
     }
 
-    public function getAttemps(): ?int
+    public function getAttempts(): ?int
     {
-        return $this->attemps;
+        return $this->attempts;
     }
 
-    public function setAttemps(int $attemps): static
+    public function setAttempts(int $attempts): static
     {
-        $this->attemps = $attemps;
+        $this->attempts = $attempts;
 
         return $this;
     }

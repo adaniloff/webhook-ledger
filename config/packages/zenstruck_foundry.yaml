@@ -1,0 +1,12 @@
+when@dev: &dev
+    zenstruck_foundry:
+        persistence:
+            flush_once: true
+
+    services:
+        App\Tests\Factory\:
+            resource: "%kernel.project_dir%/tests/Factory/"
+            autowire: true
+            autoconfigure: true
+
+when@test: *dev

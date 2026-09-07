@@ -9,12 +9,4 @@ enum StatusEnum: string
     case SUCCEEDED = 's';
     case FAILED = 'f';
     case DEAD = 'dead';
-
-    /**
-     * @return string[]
-     */
-    public static function values(): array
-    {
-        return array_map(fn ($case) => $case->value, static::cases());
-    }
 }

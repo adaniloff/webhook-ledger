@@ -8,7 +8,9 @@ use Monolog\Handler\TestHandler;
 use Monolog\Level;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Zenstruck\Foundry\Attribute\ResetDatabase;
 
+#[ResetDatabase]
 final class HealthControllerTest extends WebTestCase
 {
     private TestHandler $logger;
