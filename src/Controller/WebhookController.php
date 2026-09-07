@@ -53,7 +53,8 @@ final class WebhookController extends AbstractController implements LoggerAwareI
 
         try {
             $repository->receive(source: $source, dto: $dto);
-        } catch (WebhookEventDuplicationException $dup) {
+        } catch (WebhookEventDuplicationException) {
+            $this->logger?->debug(sprintf('Duplication exception: source %s with ext_id %s', $source->value, $dto->external_event_id));
         }
 
         if (!$dto->signature_valid) {
