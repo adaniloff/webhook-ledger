@@ -21,7 +21,8 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
-    App\Service\WebhookSigner:
+    App\Receiver\Service\WebhookSigner:
+        public: true
         arguments:
             $stripe: "%env(resolve:STRIPE_WEBHOOK_SECRET)%"
             $github: "%env(resolve:GITHUB_WEBHOOK_SECRET)%"

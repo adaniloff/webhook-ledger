@@ -2,31 +2,31 @@
 
 namespace App\Repository;
 
-use App\Dto\WebhookDto;
-use App\Entity\WebhookEvent;
+use App\Entity\WebhookEntity;
 use App\Enum\SourceEnum;
 use App\Enum\StatusEnum;
-use App\Exception\WebhookEventDuplicationException;
+use App\Receiver\Dto\WebhookDto;
+use App\Receiver\Exception\WebhookEntryDuplicationException;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * @extends ServiceEntityRepository<WebhookEvent>
+ * @extends ServiceEntityRepository<WebhookEntity>
  */
-final class WebhookEventRepository extends ServiceEntityRepository
+final class WebhookEntityRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {
-        parent::__construct($registry, WebhookEvent::class);
+        parent::__construct($registry, WebhookEntity::class);
     }
 
-    public function receive(SourceEnum $source, WebhookDto $dto, int $attempts = 1, int $version = 1): void
+    public function receive(SourceEnum $source, WebhookDto $dto, int $attempts = 1, int $version = 1): Uuid
     {
         $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
         $em = $this->getEntityManager();
-        $metadata = $em->getClassMetadata(WebhookEvent::class);
+        $metadata = $em->getClassMetadata(WebhookEntity::class);
         $table = $metadata->getTableName();
 
         $metaId = $metadata->getColumnName('id');
@@ -60,8 +60,8 @@ final class WebhookEventRepository extends ServiceEntityRepository
         ";
 
         try {
-            $affectedRows = $em->getConnection()->executeStatement($query, [
-                Uuid::v7(),
+            $em->getConnection()->executeStatement($query, [
+                $uuid = Uuid::v7(),
                 $source->value,
                 $dto->external_event_id,
                 $dto->payload,
@@ -74,7 +74,15 @@ final class WebhookEventRepository extends ServiceEntityRepository
                 $version,
             ]);
         } catch (UniqueConstraintViolationException $e) {
-            throw new WebhookEventDuplicationException(previous: $e);
+            /** @var Uuid $uuid */
+            $uuid = $em->getConnection()
+                ->executeQuery("SELECT $metaUuid FROM $table WHERE source = ? AND external_event_id = ?", [
+                    $source->value,
+                    $dto->external_event_id,
+                ])->fetchOne();
+            throw new WebhookEntryDuplicationException(uuid: (string) $uuid, previous: $e);
         }
+
+        return $uuid;
     }
 }

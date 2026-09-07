@@ -2,23 +2,23 @@
 
 namespace App\Tests\Repository;
 
-use App\Dto\WebhookDto;
 use App\Enum\SourceEnum;
 use App\Enum\StatusEnum;
-use App\Exception\WebhookEventDuplicationException;
-use App\Repository\WebhookEventRepository;
-use App\Tests\Factory\WebhookEventFactory;
+use App\Receiver\Dto\WebhookDto;
+use App\Receiver\Exception\WebhookEntryDuplicationException;
+use App\Repository\WebhookEntityRepository;
+use App\Tests\Factory\WebhookEntityFactory;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Zenstruck\Foundry\Attribute\ResetDatabase;
 
 #[ResetDatabase]
-final class WebhookEventRepositoryTest extends KernelTestCase
+final class WebhookEntityRepositoryTest extends KernelTestCase
 {
-    private WebhookEventRepository $repository;
+    private WebhookEntityRepository $repository;
 
     public function setUp(): void
     {
-        $this->repository = static::getContainer()->get(WebhookEventRepository::class);
+        $this->repository = static::getContainer()->get(WebhookEntityRepository::class);
     }
 
     public function testReceiveOnceSucceed(): void
@@ -32,11 +32,11 @@ final class WebhookEventRepositoryTest extends KernelTestCase
         );
 
         // Act
-        WebhookEventFactory::assert()->empty();
+        WebhookEntityFactory::assert()->empty();
         $this->repository->receive(SourceEnum::STRIPE, $dto);
 
         // Assert
-        WebhookEventFactory::assert()
+        WebhookEntityFactory::assert()
             ->count(1)
             ->exists(criteria: [
                 'external_event_id' => 'some-external-id',
@@ -48,8 +48,6 @@ final class WebhookEventRepositoryTest extends KernelTestCase
                 'payload' => '{"id":"some-external-id"}',
             ]);
 
-        // headers is a JSON column: Foundry's array-equality criteria doesn't reliably
-        // match it against the stored JSON, so it's checked via a direct read instead.
         $event = $this->repository->findOneBy(['external_event_id' => 'some-external-id']);
         $this->assertSame(['content-type' => 'application/json'], $event->getHeaders());
     }
@@ -65,11 +63,36 @@ final class WebhookEventRepositoryTest extends KernelTestCase
         );
 
         // Assert
-        $this->expectException(WebhookEventDuplicationException::class);
+        $this->expectException(WebhookEntryDuplicationException::class);
 
         // Act
-        WebhookEventFactory::assert()->empty();
+        WebhookEntityFactory::assert()->empty();
         $this->repository->receive(SourceEnum::STRIPE, $dto);
         $this->repository->receive(SourceEnum::STRIPE, $dto);
+    }
+
+    public function testReceiveButConstraintFailureCarriesExistingIdentifier(): void
+    {
+        // Arrange
+        WebhookEntityFactory::assert()->empty();
+        $uuid = $this->repository->receive(SourceEnum::STRIPE, $dto = new WebhookDto(
+            external_event_id: 'some-external-id',
+            payload: '{"id":"some-external-id"}',
+            headers: ['content-type' => 'application/json'],
+            signature_valid: true,
+        ));
+
+        try {
+            // Act
+            $this->repository->receive(SourceEnum::STRIPE, $dto);
+        } catch (WebhookEntryDuplicationException $e) {
+            // Assert
+            $this->assertSame((string) $uuid, $e->getIdentifier());
+            WebhookEntityFactory::assert()->count(1);
+
+            return;
+        }
+
+        $this->fail('Expected WebhookEntryDuplicationException to be thrown.');
     }
 }

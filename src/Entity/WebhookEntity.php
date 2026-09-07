@@ -4,13 +4,13 @@ namespace App\Entity;
 
 use App\Enum\SourceEnum;
 use App\Enum\StatusEnum;
-use App\Repository\WebhookEventRepository;
+use App\Repository\WebhookEntityRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity(repositoryClass: WebhookEventRepository::class)]
+#[ORM\Entity(repositoryClass: WebhookEntityRepository::class)]
 #[ORM\UniqueConstraint(name: 'uniq_source_external_event_id', columns: ['source', 'external_event_id'])]
-class WebhookEvent
+class WebhookEntity
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

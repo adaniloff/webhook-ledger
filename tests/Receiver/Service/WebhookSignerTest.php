@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Tests\Service;
+namespace App\Tests\Receiver\Service;
 
 use App\Enum\SourceEnum;
-use App\Service\WebhookSigner;
+use App\Receiver\Service\WebhookSigner;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class WebhookSignerTest extends KernelTestCase
@@ -21,14 +21,14 @@ final class WebhookSignerTest extends KernelTestCase
         $this->signer = self::getContainer()->get(WebhookSigner::class);
     }
 
-    public function testSignGithubProducesExpectedHmac(): void
+    public function testHashGithubProducesExpectedHmac(): void
     {
-        $this->assertSame(self::GITHUB_HMAC, $this->signer->sign(raw: self::RAW, source: SourceEnum::GITHUB));
+        $this->assertSame(self::GITHUB_HMAC, $this->signer->hash(raw: self::RAW, source: SourceEnum::GITHUB));
     }
 
-    public function testSignStripeProducesExpectedHmac(): void
+    public function testHashStripeProducesExpectedHmac(): void
     {
-        $this->assertSame(self::STRIPE_HMAC, $this->signer->sign(raw: self::RAW, source: SourceEnum::STRIPE));
+        $this->assertSame(self::STRIPE_HMAC, $this->signer->hash(raw: self::RAW, source: SourceEnum::STRIPE));
     }
 
     public function testVerifyGithubAcceptsValidSignature(): void

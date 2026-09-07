@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Service;
+namespace App\Receiver\Service;
 
 use App\Enum\SourceEnum;
 
@@ -15,12 +15,12 @@ final readonly class WebhookSigner
      */
     public function verify(SourceEnum $source, array $headers, string $raw): bool
     {
-        $hmac = $this->sign(raw: $raw, source: $source);
+        $hmac = $this->hash(raw: $raw, source: $source);
 
         return $source->isSafe(headers: $headers, hmac: $hmac);
     }
 
-    public function sign(string $raw, SourceEnum $source): string
+    public function hash(string $raw, SourceEnum $source): string
     {
         $secret = match ($source) {
             SourceEnum::STRIPE => $this->stripe,

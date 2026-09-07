@@ -2,15 +2,15 @@
 
 namespace App\Tests\Factory;
 
-use App\Entity\WebhookEvent;
+use App\Entity\WebhookEntity;
 use App\Enum\SourceEnum;
 use App\Enum\StatusEnum;
 use Zenstruck\Foundry\Persistence\PersistentProxyObjectFactory;
 
 /**
- * @extends PersistentProxyObjectFactory<WebhookEvent>
+ * @extends PersistentProxyObjectFactory<WebhookEntity>
  */
-final class WebhookEventFactory extends PersistentProxyObjectFactory
+final class WebhookEntityFactory extends PersistentProxyObjectFactory
 {
     /**
      * @see https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#factories-as-services
@@ -23,7 +23,7 @@ final class WebhookEventFactory extends PersistentProxyObjectFactory
 
     public static function class(): string
     {
-        return WebhookEvent::class;
+        return WebhookEntity::class;
     }
 
     /**
@@ -59,7 +59,7 @@ final class WebhookEventFactory extends PersistentProxyObjectFactory
     protected function initialize(): static
     {
         return $this
-            // ->afterInstantiate(function(WebhookEvent $webhookEvent): void {})
+            // ->afterInstantiate(function(WebhookEntity $webhookEntity): void {})
         ;
     }
 }

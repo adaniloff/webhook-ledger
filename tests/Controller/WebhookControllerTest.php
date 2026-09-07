@@ -3,8 +3,8 @@
 namespace App\Tests\Controller;
 
 use App\Enum\SourceEnum;
-use App\Service\WebhookSigner;
-use App\Tests\Factory\WebhookEventFactory;
+use App\Receiver\Service\WebhookSigner;
+use App\Tests\Factory\WebhookEntityFactory;
 use Monolog\Handler\TestHandler;
 use Monolog\Level;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -32,7 +32,7 @@ final class WebhookControllerTest extends WebTestCase
             'some_things' => 'dae7da-40a7-4744-b8a2-beb413579c40',
         ];
         $raw = json_encode($payload, \JSON_PRESERVE_ZERO_FRACTION);
-        WebhookEventFactory::assert()->count(0);
+        WebhookEntityFactory::assert()->count(0);
 
         // Act
         $this->client->jsonRequest(
@@ -41,7 +41,7 @@ final class WebhookControllerTest extends WebTestCase
             parameters: $payload,
             server: [
                 'HTTP_X_GitHub_Delivery' => 'helloword!',
-                'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->sign(raw: $raw, source: SourceEnum::GITHUB),
+                'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, source: SourceEnum::GITHUB),
             ],
         );
 
@@ -52,7 +52,7 @@ final class WebhookControllerTest extends WebTestCase
         $this->assertEmpty($this->client->getResponse()->getContent());
 
         // storage...
-        WebhookEventFactory::assert()
+        WebhookEntityFactory::assert()
             ->count(1)
             ->exists(['signature_valid' => true])
         ;
@@ -76,7 +76,7 @@ final class WebhookControllerTest extends WebTestCase
             'some_things' => 'dae7da-40a7-4744-b8a2-beb413579c40',
         ];
         $raw = json_encode($payload, \JSON_PRESERVE_ZERO_FRACTION);
-        WebhookEventFactory::assert()->count(0);
+        WebhookEntityFactory::assert()->count(0);
 
         // Act
         $this->client->jsonRequest(
@@ -85,7 +85,7 @@ final class WebhookControllerTest extends WebTestCase
             parameters: $payload,
             server: [
                 'HTTP_X_GitHub_Delivery' => 'helloword!',
-                'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->sign(raw: $raw, source: SourceEnum::STRIPE),
+                'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, source: SourceEnum::STRIPE),
             ],
         );
 
@@ -94,7 +94,7 @@ final class WebhookControllerTest extends WebTestCase
         $this->assertResponseStatusCodeSame(401);
 
         // storage...
-        WebhookEventFactory::assert()
+        WebhookEntityFactory::assert()
             ->count(1)
             ->exists(['signature_valid' => false])
         ;
@@ -103,7 +103,7 @@ final class WebhookControllerTest extends WebTestCase
     public function testHookReturns422WithEmptyPayload(): void
     {
         // Arrange
-        WebhookEventFactory::assert()->count(0);
+        WebhookEntityFactory::assert()->count(0);
 
         // Act
         $this->client->jsonRequest(
@@ -120,13 +120,13 @@ final class WebhookControllerTest extends WebTestCase
         $this->assertArrayHasKey('external_event_id', $response['fields']);
 
         // storage...
-        WebhookEventFactory::assert()->count(0);
+        WebhookEntityFactory::assert()->count(0);
     }
 
     public function testHookReturns422WithEmptyContent(): void
     {
         // Arrange
-        WebhookEventFactory::assert()->count(0);
+        WebhookEntityFactory::assert()->count(0);
 
         // Act
         $this->client->request(
@@ -148,7 +148,7 @@ final class WebhookControllerTest extends WebTestCase
         $this->assertArrayNotHasKey('external_event_id', $response['fields']);
 
         // storage...
-        WebhookEventFactory::assert()->count(0);
+        WebhookEntityFactory::assert()->count(0);
     }
 
     public function testHook202Idempotency(): void
@@ -158,10 +158,11 @@ final class WebhookControllerTest extends WebTestCase
             'some_things' => 'dae7da-40a7-4744-b8a2-beb413579c40',
         ];
         $raw = json_encode($payload, \JSON_PRESERVE_ZERO_FRACTION);
-        WebhookEventFactory::assert()->count(0);
+        WebhookEntityFactory::assert()->count(0);
 
         // Act
         $count = 0;
+        $eventId = null;
         do {
             $this->client->jsonRequest(
                 method: 'POST',
@@ -169,9 +170,10 @@ final class WebhookControllerTest extends WebTestCase
                 parameters: $payload,
                 server: [
                     'HTTP_X_GitHub_Delivery' => 'helloword!',
-                    'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->sign(raw: $raw, source: SourceEnum::GITHUB),
+                    'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, source: SourceEnum::GITHUB),
                 ],
             );
+            $eventId ??= $this->client->getResponse()->headers->get('X-Evt-Id');
         } while (++$count < 5);
 
         // Assert
@@ -179,9 +181,10 @@ final class WebhookControllerTest extends WebTestCase
         $this->assertResponseIsSuccessful();
         $this->assertResponseStatusCodeSame(202);
         $this->assertEmpty($this->client->getResponse()->getContent());
+        $this->assertSame($eventId, $this->client->getResponse()->headers->get('X-Evt-Id'));
 
         // storage...
-        WebhookEventFactory::assert()
+        WebhookEntityFactory::assert()
             ->count(1) // only one line has been persisted
             ->exists(['signature_valid' => true])
         ;
@@ -194,7 +197,7 @@ final class WebhookControllerTest extends WebTestCase
             'some_things' => 'dae7da-40a7-4744-b8a2-beb413579c40',
         ];
         $raw = json_encode($payload, \JSON_PRESERVE_ZERO_FRACTION);
-        WebhookEventFactory::assert()->count(0);
+        WebhookEntityFactory::assert()->count(0);
 
         // Act
         $count = 0;
@@ -205,7 +208,7 @@ final class WebhookControllerTest extends WebTestCase
                 parameters: $payload,
                 server: [
                     'HTTP_X_GitHub_Delivery' => 'helloword!',
-                    'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->sign(raw: $raw, source: SourceEnum::STRIPE),
+                    'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, source: SourceEnum::STRIPE),
                 ],
             );
         } while (++$count < 5);
@@ -215,7 +218,7 @@ final class WebhookControllerTest extends WebTestCase
         $this->assertResponseStatusCodeSame(401);
 
         // storage...
-        WebhookEventFactory::assert()
+        WebhookEntityFactory::assert()
             ->count(1)
             ->exists(['signature_valid' => false])
         ;
