@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Dto\WebhookDto;
 use App\Enum\SourceEnum;
+use App\Exception\WebhookEventDuplicationException;
 use App\Repository\WebhookEventRepository;
 use App\Service\WebhookSigner;
 use Psr\Log\LoggerAwareInterface;
@@ -49,7 +50,11 @@ final class WebhookController extends AbstractController implements LoggerAwareI
         }
 
         $this->logger?->debug(sprintf('REQUEST BODY <source: %s, payload: %s>', $source->value, $raw));
-        $repository->receive(source: $source, dto: $dto);
+
+        try {
+            $repository->receive(source: $source, dto: $dto);
+        } catch (WebhookEventDuplicationException $dup) {
+        }
 
         if (!$dto->signature_valid) {
             return $this->json(data: ['error' => 'Invalid signature.', 'fields' => []], status: 401);

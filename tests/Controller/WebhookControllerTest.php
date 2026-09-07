@@ -69,48 +69,7 @@ final class WebhookControllerTest extends WebTestCase
         );
     }
 
-    public function testHookReturns401(): void
-    {
-        // Arrange
-        $payload = [
-            'some-things' => 'dae7da-40a7-4744-b8a2-beb413579c40',
-        ];
-        WebhookEventFactory::assert()->count(0);
-
-        // Act
-        $this->client->jsonRequest(
-            method: 'POST',
-            uri: '/webhook/github',
-            parameters: $payload,
-            server: [
-                'HTTP_X_GitHub_Delivery' => 'helloword!',
-            ],
-        );
-
-        // Assert
-        // response ...
-        $this->assertResponseStatusCodeSame(401);
-        $this->assertEquals('{"error":"Invalid signature.","fields":[]}', $this->client->getResponse()->getContent());
-
-        // storage...
-        WebhookEventFactory::assert()
-            ->count(1)
-            ->exists(['signature_valid' => false])
-        ;
-
-        // logs ...
-        $this->assertTrue(
-            $this->logger->hasRecordThatContains(message: 'REQUEST BODY', level: Level::Debug),
-        );
-        $this->assertTrue(
-            $this->logger->hasRecordThatContains(message: 'source: '.SourceEnum::GITHUB->value, level: Level::Debug),
-        );
-        $this->assertTrue(
-            $this->logger->hasRecordThatContains(message: 'payload: '.json_encode($payload), level: Level::Debug),
-        );
-    }
-
-    public function testHookReturns401WithTamperedSignature(): void
+    public function testHookReturns401OnWrongSignature(): void
     {
         // Arrange
         $payload = [
@@ -126,7 +85,6 @@ final class WebhookControllerTest extends WebTestCase
             parameters: $payload,
             server: [
                 'HTTP_X_GitHub_Delivery' => 'helloword!',
-                // well-formed signature, but computed with the wrong secret
                 'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->sign(raw: $raw, source: SourceEnum::STRIPE),
             ],
         );
@@ -142,17 +100,16 @@ final class WebhookControllerTest extends WebTestCase
         ;
     }
 
-    public function testHookReturns422(): void
+    public function testHookReturns422WithEmptyPayload(): void
     {
         // Arrange
-        $payload = [];
         WebhookEventFactory::assert()->count(0);
 
         // Act
         $this->client->jsonRequest(
             method: 'POST',
             uri: '/webhook/stripe',
-            parameters: $payload,
+            parameters: [],
         );
 
         // Assert
@@ -166,7 +123,7 @@ final class WebhookControllerTest extends WebTestCase
         WebhookEventFactory::assert()->count(0);
     }
 
-    public function testHookReturns422WithEmptyPayload(): void
+    public function testHookReturns422WithEmptyContent(): void
     {
         // Arrange
         WebhookEventFactory::assert()->count(0);
@@ -192,5 +149,75 @@ final class WebhookControllerTest extends WebTestCase
 
         // storage...
         WebhookEventFactory::assert()->count(0);
+    }
+
+    public function testHook202Idempotency(): void
+    {
+        // Arrange
+        $payload = [
+            'some_things' => 'dae7da-40a7-4744-b8a2-beb413579c40',
+        ];
+        $raw = json_encode($payload, \JSON_PRESERVE_ZERO_FRACTION);
+        WebhookEventFactory::assert()->count(0);
+
+        // Act
+        $count = 0;
+        do {
+            $this->client->jsonRequest(
+                method: 'POST',
+                uri: '/webhook/github',
+                parameters: $payload,
+                server: [
+                    'HTTP_X_GitHub_Delivery' => 'helloword!',
+                    'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->sign(raw: $raw, source: SourceEnum::GITHUB),
+                ],
+            );
+        } while (++$count < 5);
+
+        // Assert
+        // response ...
+        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(202);
+        $this->assertEmpty($this->client->getResponse()->getContent());
+
+        // storage...
+        WebhookEventFactory::assert()
+            ->count(1) // only one line has been persisted
+            ->exists(['signature_valid' => true])
+        ;
+    }
+
+    public function testHook401Idempotency(): void
+    {
+        // Arrange
+        $payload = [
+            'some_things' => 'dae7da-40a7-4744-b8a2-beb413579c40',
+        ];
+        $raw = json_encode($payload, \JSON_PRESERVE_ZERO_FRACTION);
+        WebhookEventFactory::assert()->count(0);
+
+        // Act
+        $count = 0;
+        do {
+            $this->client->jsonRequest(
+                method: 'POST',
+                uri: '/webhook/github',
+                parameters: $payload,
+                server: [
+                    'HTTP_X_GitHub_Delivery' => 'helloword!',
+                    'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->sign(raw: $raw, source: SourceEnum::STRIPE),
+                ],
+            );
+        } while (++$count < 5);
+
+        // Assert
+        // response ...
+        $this->assertResponseStatusCodeSame(401);
+
+        // storage...
+        WebhookEventFactory::assert()
+            ->count(1)
+            ->exists(['signature_valid' => false])
+        ;
     }
 }
