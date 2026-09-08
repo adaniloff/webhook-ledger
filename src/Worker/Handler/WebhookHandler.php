@@ -6,22 +6,21 @@ use App\Entity\WebhookEntity;
 use App\Enum\SourceEnum;
 use App\Repository\WebhookEntityRepository;
 use App\Worker\Message\ProcessWebhookEvent;
-use Psr\Log\LoggerAwareInterface;
-use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
-final class WebhookHandler implements LoggerAwareInterface
+final class WebhookHandler
 {
-    use LoggerAwareTrait;
-
-    public function __construct(private WebhookEntityRepository $repository)
-    {
+    public function __construct(
+        private LoggerInterface $webhookLogger,
+        private WebhookEntityRepository $repository,
+    ) {
     }
 
     public function __invoke(ProcessWebhookEvent $message): void
     {
-        $this->logger?->debug(sprintf('Handling message %s', $message->uuid));
+        $this->webhookLogger->debug(sprintf('Handling message %s', $message->uuid));
 
         $webhook = $this->repository->findOneBy(['uuid' => $message->uuid]);
 
@@ -34,7 +33,7 @@ final class WebhookHandler implements LoggerAwareInterface
 
     private function stripe(WebhookEntity $webhook): void
     {
-        $this->logger?->info('<not implemented yet> '.$webhook->getUuid());
+        $this->webhookLogger->info('<not implemented yet> '.$webhook->getUuid());
     }
 
     private function github(WebhookEntity $webhook): void
@@ -43,6 +42,6 @@ final class WebhookHandler implements LoggerAwareInterface
         $event = $webhook->getHeaders()['X-Github-Event'] ?? $webhook->getHeaders()['x-github-event'] ?? [];
         $event = json_encode($event);
 
-        $this->logger?->info('<event> '.$event);
+        $this->webhookLogger->info('<event> '.$event);
     }
 }

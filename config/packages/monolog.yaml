@@ -1,6 +1,7 @@
 monolog:
     channels: # To see all channels, run bin/console debug:autowiring logger
         - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
+        - webhook
 
 when@dev:
     monolog:
@@ -14,6 +15,11 @@ when@dev:
                 type: console
                 process_psr_3_messages: false
                 channels: ["!event", "!doctrine", "!console"]
+            webhook:
+                type: stream
+                path: "%kernel.logs_dir%/webhook_%kernel.environment%.log"
+                level: debug
+                channels: ["webhook"]
 
 when@test:
     monolog:
@@ -28,6 +34,11 @@ when@test:
                 type: stream
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
+            webhook:
+                type: stream
+                path: "%kernel.logs_dir%/webhook_%kernel.environment%.log"
+                level: debug
+                channels: ["webhook"]
 
 when@prod:
     monolog:
@@ -37,7 +48,10 @@ when@prod:
                 action_level: error
                 handler: error_log_handler
                 excluded_http_codes: [404]
-
             error_log_handler:
                 type: error_log
                 level: info
+            webhook:
+                type: error_log
+                level: debug
+                channels: ["webhook"]
