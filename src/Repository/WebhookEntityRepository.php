@@ -85,4 +85,53 @@ final class WebhookEntityRepository extends ServiceEntityRepository
 
         return $uuid;
     }
+
+    public function markDispatched(string $uuid): void
+    {
+        $this->mark(uuid: $uuid, status: StatusEnum::DISPATCHED, incrementAttempts: true);
+    }
+
+    public function markSucceeded(string $uuid): void
+    {
+        $this->mark(uuid: $uuid, status: StatusEnum::SUCCEEDED);
+    }
+
+    public function markFailed(string $uuid, string $error): void
+    {
+        $this->mark(uuid: $uuid, status: StatusEnum::FAILED, error: $error);
+    }
+
+    public function markDead(string $uuid, string $error): void
+    {
+        $this->mark(uuid: $uuid, status: StatusEnum::DEAD, error: $error);
+    }
+
+    private function mark(
+        string $uuid,
+        StatusEnum $status,
+        bool $incrementAttempts = false,
+        ?string $error = null,
+    ): void {
+        $em = $this->getEntityManager();
+        $metadata = $em->getClassMetadata(WebhookEntity::class);
+        $table = $metadata->getTableName();
+
+        $metaId = $metadata->getColumnName('id');
+        $metaUuid = $metadata->getColumnName('uuid');
+        $count = (int) $incrementAttempts;
+
+        $em->getConnection()->executeStatement(
+            "UPDATE $table SET status = :status,
+               attempts = attempts + $count,
+               updated_at = :now,
+               last_error = :last_error
+             WHERE $metaUuid = :uuid AND status != :status",
+            [
+                'uuid' => Uuid::fromString($uuid),
+                'status' => $status->value,
+                'now' => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
+                'last_error' => $error,
+            ],
+        );
+    }
 }
