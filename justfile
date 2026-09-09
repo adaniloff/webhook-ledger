@@ -47,8 +47,26 @@ php-test *args:
 _list:
     @just -l
 
+# internal - test request concurrency (N requests, same event_external_id)
+_test-concurrency-dedup:
+    @just console d:d:d --force
+    @just console d:d:c
+    @just console d:m:m --no-interaction
+    ./bin/concurrency-test-dedup.sh
+
+# internal - test worker concurrency (same queue, only 1 execution)
+_test-concurrency-workers:
+    ./bin/concurrency-test-workers.sh
+
+# internal - test replay concurrency (2 replays at the same time)
+_test-concurrency-replay:
+    ./bin/concurrency-test-replay.sh
+
+# internal - run the whole concurrency test suite
+_test-concurrency: _test-concurrency-dedup _test-concurrency-workers _test-concurrency-replay
+
 # internal - reindex phpactor (ex: after a composer update)
-ide-reindex:
+_ide-reindex:
     php ~/.local/share/nvim/mason/packages/phpactor/phpactor.phar index:build --reset --working-dir=$(pwd)
 
 # internal - assign free host ports to .env.local if not already set
@@ -67,3 +85,5 @@ alias console := php-console
 alias cs := php-lint
 alias stan := php-stan
 alias test := php-test
+alias ide := _ide-reindex
+alias ccrc := _test-concurrency
