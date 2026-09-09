@@ -25,7 +25,7 @@ final class WebhookEntityRepository extends ServiceEntityRepository
         parent::__construct($registry, WebhookEntity::class);
     }
 
-    public function receive(SourceEnum $source, WebhookDto $dto, int $attempts = 1, int $version = 1): Uuid
+    public function receive(SourceEnum $source, WebhookDto $dto, int $attempts = 0, int $version = 1): Uuid
     {
         $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
         $em = $this->getEntityManager();

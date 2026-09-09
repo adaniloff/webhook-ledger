@@ -34,7 +34,10 @@ final readonly class Receiver
     {
         return $this->conn->transactional(function () use ($source, $dto): Uuid {
             $uuid = $this->repository->receive(source: $source, dto: $dto);
-            $this->bus->dispatch(new ProcessWebhookEvent(uuid: $uuid->toRfc4122()));
+
+            if ($dto->signature_valid) {
+                $this->bus->dispatch(new ProcessWebhookEvent(uuid: $uuid->toRfc4122()));
+            }
 
             return $uuid;
         });
@@ -46,7 +49,7 @@ final readonly class Receiver
             if (!$entity = $this->repository->findOneBy(['uuid' => $uuid])) {
                 throw new WebhookNotFoundException(uuid: $uuid);
             }
-            if (!$entity->getStatus()?->canReplay()) {
+            if (!$entity->getStatus()?->canReplay() || !$entity->isSignatureValid()) {
                 throw new WebhookNotReplayableException(uuid: $uuid);
             }
             $this->repository->replay(entity: $entity, version: $version);

@@ -42,7 +42,7 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
                 'external_event_id' => 'some-external-id',
                 'source' => SourceEnum::STRIPE,
                 'status' => StatusEnum::RECEIVED,
-                'attempts' => 1,
+                'attempts' => 0,
                 'version' => 1,
                 'signature_valid' => true,
                 'payload' => '{"id":"some-external-id"}',
