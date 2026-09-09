@@ -33,7 +33,16 @@ final class WebhookHandler
 
     private function stripe(WebhookEntity $webhook): void
     {
-        $this->webhookLogger->info('<not implemented yet> '.$webhook->getUuid());
+        $payload = json_decode($webhook->getPayload() ?? '', true);
+        $type = is_array($payload) && is_string($payload['type'] ?? null) ? $payload['type'] : null;
+
+        if ('payment_intent.succeeded' !== $type) {
+            $this->webhookLogger->debug('<stripe event ignored> '.$webhook->getUuid().' ('.($type ?? 'unknown').')');
+
+            return;
+        }
+
+        $this->webhookLogger->info('<payment_intent.succeeded> '.$webhook->getUuid());
     }
 
     private function github(WebhookEntity $webhook): void

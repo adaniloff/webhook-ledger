@@ -41,7 +41,7 @@ final class WebhookControllerTest extends WebTestCase
             parameters: $payload,
             server: [
                 'HTTP_X_GitHub_Delivery' => 'helloword!',
-                'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, source: SourceEnum::GITHUB),
+                'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, headers: [], source: SourceEnum::GITHUB),
             ],
         );
 
@@ -85,7 +85,7 @@ final class WebhookControllerTest extends WebTestCase
             parameters: $payload,
             server: [
                 'HTTP_X_GitHub_Delivery' => 'helloword!',
-                'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, source: SourceEnum::STRIPE),
+                'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, headers: [], source: SourceEnum::STRIPE),
             ],
         );
 
@@ -170,7 +170,7 @@ final class WebhookControllerTest extends WebTestCase
                 parameters: $payload,
                 server: [
                     'HTTP_X_GitHub_Delivery' => 'helloword!',
-                    'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, source: SourceEnum::GITHUB),
+                    'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, headers: [], source: SourceEnum::GITHUB),
                 ],
             );
             $eventId ??= $this->client->getResponse()->headers->get('X-Evt-Id');
@@ -208,7 +208,7 @@ final class WebhookControllerTest extends WebTestCase
                 parameters: $payload,
                 server: [
                     'HTTP_X_GitHub_Delivery' => 'helloword!',
-                    'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, source: SourceEnum::STRIPE),
+                    'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, headers: [], source: SourceEnum::STRIPE),
                 ],
             );
         } while (++$count < 5);

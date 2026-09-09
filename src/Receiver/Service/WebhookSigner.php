@@ -15,18 +15,21 @@ final readonly class WebhookSigner
      */
     public function verify(SourceEnum $source, array $headers, string $raw): bool
     {
-        $hmac = $this->hash(raw: $raw, source: $source);
+        $hmac = $this->hash(raw: $raw, headers: $headers, source: $source);
 
-        return $source->isSafe(headers: $headers, hmac: $hmac);
+        return $source->checkSignature(headers: $headers, hmac: $hmac);
     }
 
-    public function hash(string $raw, SourceEnum $source): string
+    /**
+     * @param array<string, list<string|null>> $headers
+     */
+    public function hash(string $raw, array $headers, SourceEnum $source): string
     {
         $secret = match ($source) {
             SourceEnum::STRIPE => $this->stripe,
             SourceEnum::GITHUB => $this->github,
         };
 
-        return hash_hmac('sha256', $raw, $secret);
+        return $source->parseHmac(raw: $raw, headers: $headers, secret: $secret);
     }
 }
