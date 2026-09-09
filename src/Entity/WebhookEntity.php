@@ -50,8 +50,8 @@ class WebhookEntity
     #[ORM\Column]
     private ?\DateTimeImmutable $updated_at = null;
 
-    #[ORM\Column]
-    private ?int $version = null;
+    #[ORM\Column(type: 'integer'), ORM\Version]
+    private int $version = 1;
 
     public function getId(): ?int
     {
@@ -197,7 +197,7 @@ class WebhookEntity
         return $this;
     }
 
-    public function getVersion(): ?int
+    public function getVersion(): int
     {
         return $this->version;
     }

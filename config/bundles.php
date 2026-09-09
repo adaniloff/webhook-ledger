@@ -6,7 +6,7 @@ return [
     Doctrine\Bundle\MigrationsBundle\DoctrineMigrationsBundle::class => ['all' => true],
     Symfony\Bundle\MakerBundle\MakerBundle::class => ['dev' => true],
     Symfony\Bundle\MonologBundle\MonologBundle::class => ['all' => true],
-    Symfony\Bundle\TwigBundle\TwigBundle::class => ['dev' => true, 'test' => true],
+    Symfony\Bundle\TwigBundle\TwigBundle::class => ['dev' => true, 'test' => true, 'prod' => true], // @todo: remove prod=true after React frontend implementation
     Symfony\Bundle\WebProfilerBundle\WebProfilerBundle::class => ['dev' => true, 'test' => true],
     Zenstruck\Foundry\ZenstruckFoundryBundle::class => ['dev' => true, 'test' => true],
 ];

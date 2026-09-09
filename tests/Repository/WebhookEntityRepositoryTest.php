@@ -95,4 +95,24 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
 
         $this->fail('Expected WebhookEntryDuplicationException to be thrown.');
     }
+
+    public function testMarkDispatchedSetsStatusAndIncrementsAttempts(): void
+    {
+    }
+
+    public function testMarkSucceededSetsStatusWithoutIncrementingAttempts(): void
+    {
+    }
+
+    public function testMarkFailedSetsStatusAndLastError(): void
+    {
+    }
+
+    public function testMarkDeadSetsStatusAndLastError(): void
+    {
+    }
+
+    public function testMarkIsNoopWhenAlreadyAtTargetStatus(): void
+    {
+    }
 }

@@ -9,4 +9,9 @@ enum StatusEnum: string
     case SUCCEEDED = 's';
     case FAILED = 'f';
     case DEAD = 'dead';
+
+    public function canReplay(): bool
+    {
+        return self::DEAD === $this;
+    }
 }

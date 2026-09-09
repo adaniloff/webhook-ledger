@@ -1,0 +1,110 @@
+<style>
+    body { font-family: system-ui, sans-serif; background: #f6f7f9; color: #1f2430; margin: 0; padding: 2rem; }
+    h1 { margin: 0 0 1.5rem; font-size: 1.4rem; }
+
+    .stats { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+    .stat {
+        background: #fff; border-radius: 10px; padding: 1rem 1.25rem; min-width: 110px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.06); border-top: 3px solid var(--accent, #ccc);
+    }
+    .stat .count { font-size: 1.6rem; font-weight: 700; display: block; }
+    .stat .label { font-size: .8rem; color: #6b7280; }
+
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+    th, td { text-align: left; padding: .6rem .9rem; font-size: .85rem; border-bottom: 1px solid #eef0f2; }
+    th { color: #6b7280; font-weight: 600; text-transform: uppercase; font-size: .7rem; letter-spacing: .04em; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafbfc; }
+
+    .badge { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600; color: #fff; }
+    .badge-r { background: #6b7280; }
+    .badge-dis { background: #6366f1; }
+    .badge-s { background: #22c55e; }
+    .badge-f { background: #f59e0b; }
+    .badge-dead { background: #ef4444; }
+
+    .uuid { font-family: ui-monospace, monospace; color: #6b7280; }
+    .sig-ok { color: #22c55e; }
+    .sig-ko { color: #ef4444; }
+    .empty { padding: 2rem; text-align: center; color: #6b7280; }
+
+    .replay-btn {
+        display: inline-flex; align-items: center; gap: .3rem;
+        padding: .25rem .65rem; border-radius: 6px; font-size: .78rem; font-weight: 600;
+        background: #fee2e2; color: #b91c1c; text-decoration: none; white-space: nowrap;
+        border: none; cursor: pointer; font-family: inherit;
+    }
+    .replay-btn:hover { background: #fecaca; }
+    .replay-form { margin: 0; display: inline; }
+    .no-action { color: #d1d5db; }
+</style>
+
+{% set status_labels = {'r': 'Reçu', 'dis': 'Envoyé', 's': 'Réussi', 'f': 'Échoué', 'dead': 'Mort'} %}
+{% set status_order = ['r', 'dis', 's', 'f', 'dead'] %}
+
+{% set counts = {} %}
+{% for webhook in webhooks %}
+    {% set key = webhook.status.value %}
+    {% set counts = counts|merge({(key): (counts[key] ?? 0) + 1}) %}
+{% endfor %}
+
+<h1>Webhooks</h1>
+
+<div class="stats">
+    <div class="stat" style="--accent: #1f2430;">
+        <span class="count">{{ webhooks|length }}</span>
+        <span class="label">Total</span>
+    </div>
+    {% for key in status_order %}
+        <div class="stat" style="--accent: {{ {'r':'#6b7280','dis':'#6366f1','s':'#22c55e','f':'#f59e0b','dead':'#ef4444'}[key] }};">
+            <span class="count">{{ counts[key] ?? 0 }}</span>
+            <span class="label">{{ status_labels[key] }}</span>
+        </div>
+    {% endfor %}
+</div>
+
+{% if webhooks is empty %}
+    <div class="empty">Aucun webhook reçu pour l'instant.</div>
+{% else %}
+    <table>
+        <thead>
+            <tr>
+                <th>UUID</th>
+                <th>Source</th>
+                <th>Statut</th>
+                <th>Tentatives</th>
+                <th>Signature</th>
+                <th>Reçu le</th>
+                <th>Mis à jour</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for webhook in webhooks|reverse %}
+                <tr title="{{ webhook.lastError }}">
+                    <td class="uuid" title="{{ webhook.uuid }}">{{ webhook.uuid|slice(0, 8) }}…</td>
+                    <td>{{ webhook.source.value }}</td>
+                    <td><span class="badge badge-{{ webhook.status.value }}">{{ status_labels[webhook.status.value] }}</span></td>
+                    <td>{{ webhook.attempts }}</td>
+                    <td class="{{ webhook.signatureValid ? 'sig-ok' : 'sig-ko' }}">{{ webhook.signatureValid ? '✓' : '✗' }}</td>
+                    <td>{{ webhook.receivedAt|date('d/m/Y H:i') }}</td>
+                    <td>{{ webhook.updatedAt|date('d/m/Y H:i') }}</td>
+                    <td>
+                        {% if webhook.status.canReplay() %}
+                            <form
+                                class="replay-form"
+                                method="post"
+                                action="{{ url('webhook_replay', {uuid: webhook.uuid, version: webhook.version}) }}"
+                                onsubmit="return confirm('Rejouer ce webhook ({{ webhook.uuid|slice(0, 8) }}…) ?');"
+                            >
+                                <button type="submit" class="replay-btn">↻ Rejouer</button>
+                            </form>
+                        {% else %}
+                            <span class="no-action">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}

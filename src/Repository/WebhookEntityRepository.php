@@ -7,8 +7,11 @@ use App\Enum\SourceEnum;
 use App\Enum\StatusEnum;
 use App\Receiver\Dto\WebhookDto;
 use App\Receiver\Exception\WebhookEntryDuplicationException;
+use App\Receiver\Exception\WebhookOutdatedException;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\OptimisticLockException;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
 
@@ -84,6 +87,21 @@ final class WebhookEntityRepository extends ServiceEntityRepository
         }
 
         return $uuid;
+    }
+
+    public function replay(WebhookEntity $entity, int $version): void
+    {
+        $em = $this->getEntityManager();
+
+        try {
+            $entity->setStatus(StatusEnum::RECEIVED);
+            $entity->setUpdatedAt($now = new \DateTimeImmutable());
+            $entity->setReceivedAt($now);
+            $em->lock($entity, LockMode::OPTIMISTIC, $version);
+            $em->flush();
+        } catch (OptimisticLockException $e) {
+            throw new WebhookOutdatedException(uuid: (string) $entity->getUuid(), outdatedVersion: $version, previous: $e);
+        }
     }
 
     public function markDispatched(string $uuid): void
