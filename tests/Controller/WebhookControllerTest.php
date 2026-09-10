@@ -5,6 +5,7 @@ namespace App\Tests\Controller;
 use App\Enum\SourceEnum;
 use App\Receiver\Service\WebhookSigner;
 use App\Tests\Factory\WebhookEntityFactory;
+use Doctrine\DBAL\Connection;
 use Monolog\Handler\TestHandler;
 use Monolog\Level;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -100,32 +101,14 @@ final class WebhookControllerTest extends WebTestCase
         ;
     }
 
-    public function testHookReturns422WithEmptyPayload(): void
+    public function testHookReturns422WithValidSignatureButWrongPayloadDoesNotDispatch(): void
     {
         // Arrange
-        WebhookEntityFactory::assert()->count(0);
-
-        // Act
-        $this->client->jsonRequest(
-            method: 'POST',
-            uri: '/webhook/stripe',
-            parameters: [],
-        );
-
-        // Assert
-        // response ...
-        $this->assertResponseStatusCodeSame(422);
-        $response = json_decode($this->client->getResponse()->getContent(), associative: true);
-        $this->assertSame('Invalid and/or missing fields.', $response['error']);
-        $this->assertArrayHasKey('external_event_id', $response['fields']);
-
-        // storage...
-        WebhookEntityFactory::assert()->count(0);
-    }
-
-    public function testHookReturns422WithEmptyContent(): void
-    {
-        // Arrange
+        $payload = [
+            'some_things' => 'dae7da-40a7-4744-b8a2-beb413579c40',
+        ];
+        $raw = json_encode($payload, \JSON_PRESERVE_ZERO_FRACTION);
+        $hmac = $this->signer->hash(raw: $raw, headers: [], source: SourceEnum::GITHUB);
         WebhookEntityFactory::assert()->count(0);
 
         // Act
@@ -133,22 +116,24 @@ final class WebhookControllerTest extends WebTestCase
             method: 'POST',
             uri: '/webhook/github',
             server: [
-                'HTTP_X_GitHub_Delivery' => 'helloword!',
                 'CONTENT_TYPE' => 'application/json',
+                'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$hmac,
             ],
-            content: '',
+            content: $raw,
         );
 
         // Assert
         // response ...
         $this->assertResponseStatusCodeSame(422);
         $response = json_decode($this->client->getResponse()->getContent(), associative: true);
-        $this->assertSame('Invalid and/or missing fields.', $response['error']);
-        $this->assertArrayHasKey('payload', $response['fields']);
-        $this->assertArrayNotHasKey('external_event_id', $response['fields']);
+        $this->assertArrayHasKey('external_event_id', $response['fields']);
 
         // storage...
-        WebhookEntityFactory::assert()->count(0);
+        WebhookEntityFactory::assert()
+            ->count(1)
+            ->exists(['signature_valid' => true])
+        ;
+        $this->assertSame(0, $this->countMessengerMessages());
     }
 
     public function testHook202Idempotency(): void
@@ -222,5 +207,11 @@ final class WebhookControllerTest extends WebTestCase
             ->count(1)
             ->exists(['signature_valid' => false])
         ;
+    }
+
+    private function countMessengerMessages(): int
+    {
+        return (int) self::getContainer()->get(Connection::class)
+            ->fetchOne('SELECT COUNT(*) FROM messenger_messages');
     }
 }

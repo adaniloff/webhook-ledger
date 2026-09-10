@@ -19,6 +19,7 @@ use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 final class WebhookController extends AbstractController implements LoggerAwareInterface
@@ -78,13 +79,10 @@ final class WebhookController extends AbstractController implements LoggerAwareI
         );
 
         $this->logger?->debug(sprintf('REQUEST BODY <source: %s, payload: %s>', $source->value, $raw));
-
-        if ($failureResponse = $this->validationFailureResponse($validator, $dto, $source)) {
-            return $failureResponse;
-        }
+        $violations = $validator->validate(value: $dto);
 
         try {
-            $uuid = $receiver->capture(source: $source, dto: $dto);
+            $uuid = $receiver->capture(source: $source, dto: $dto, payloadValid: 0 === count($violations));
         } catch (WebhookEntryDuplicationException $e) {
             $uuid = $e->getIdentifier();
             $this->logger?->debug(
@@ -96,15 +94,18 @@ final class WebhookController extends AbstractController implements LoggerAwareI
             return $this->json(data: ['error' => 'Invalid signature.', 'fields' => []], status: 401);
         }
 
+        if ($failureResponse = $this->validationFailureResponse($violations, $source)) {
+            return $failureResponse;
+        }
+
         return new Response(content: '', headers: ['X-Evt-Id' => $uuid], status: 202);
     }
 
     private function validationFailureResponse(
-        ValidatorInterface $validator,
-        WebhookDto $dto,
+        ConstraintViolationListInterface $violations,
         SourceEnum $source,
     ): ?Response {
-        if (count($violations = $validator->validate(value: $dto)) <= 0) {
+        if (count($violations) <= 0) {
             return null;
         }
         $errors = [];

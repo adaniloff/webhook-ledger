@@ -30,12 +30,12 @@ final readonly class Receiver
         return $this->signer->verify(source: $source, headers: $headers, raw: $raw);
     }
 
-    public function capture(SourceEnum $source, WebhookDto $dto): Uuid
+    public function capture(SourceEnum $source, WebhookDto $dto, bool $payloadValid): Uuid
     {
-        return $this->conn->transactional(function () use ($source, $dto): Uuid {
+        return $this->conn->transactional(function () use ($source, $dto, $payloadValid): Uuid {
             $uuid = $this->repository->receive(source: $source, dto: $dto);
 
-            if ($dto->signature_valid) {
+            if ($dto->signature_valid && $payloadValid) {
                 $this->bus->dispatch(new ProcessWebhookEvent(uuid: $uuid->toRfc4122()));
             }
 

@@ -15,7 +15,6 @@ use Zenstruck\Foundry\Attribute\ResetDatabase;
 #[ResetDatabase]
 final class ReceiverTest extends KernelTestCase
 {
-    // context: it was working 1 or 2 days before
     public function testHappyCapturePath(): void
     {
         // Arrange
@@ -28,13 +27,34 @@ final class ReceiverTest extends KernelTestCase
             payload: '{"some-payload": false}',
             headers: [],
             signature_valid: true,
-        ));
+        ), payloadValid: true);
 
         // Assert
         WebhookEntityFactory::assert()
                 ->count(1)
                 ->exists(['uuid' => $uuid]);
         $this->assertSame(1, $this->countMessengerMessages());
+    }
+
+    public function testCaptureWithInvalidPayloadDoesNotDispatch(): void
+    {
+        // Arrange
+        $container = self::getContainer();
+        WebhookEntityFactory::assert()->count(0);
+
+        // Act
+        $uuid = $container->get(Receiver::class)->capture(SourceEnum::GITHUB, new WebhookDto(
+            external_event_id: 'some-id',
+            payload: '{"some-payload": false}',
+            headers: [],
+            signature_valid: true,
+        ), payloadValid: false);
+
+        // Assert
+        WebhookEntityFactory::assert()
+                ->count(1)
+                ->exists(['uuid' => $uuid]);
+        $this->assertSame(0, $this->countMessengerMessages());
     }
 
     public function testBrokenCapturePathAtomicity(): void
@@ -55,7 +75,7 @@ final class ReceiverTest extends KernelTestCase
                 payload: '{"some-payload": false}',
                 headers: [],
                 signature_valid: true,
-            ));
+            ), payloadValid: true);
         } catch (\Throwable) {
             // Assert
             WebhookEntityFactory::assert()->count(0);
@@ -76,11 +96,11 @@ final class ReceiverTest extends KernelTestCase
             payload: '{"some-payload": false}',
             headers: [],
             signature_valid: true,
-        ));
+        ), payloadValid: true);
 
         // Act
         try {
-            $container->get(Receiver::class)->capture(SourceEnum::GITHUB, $dto);
+            $container->get(Receiver::class)->capture(SourceEnum::GITHUB, $dto, payloadValid: true);
         } catch (WebhookEntryDuplicationException $e) {
             // Assert
             $this->assertEquals($uuid, $e->getIdentifier());
