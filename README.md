@@ -150,7 +150,9 @@ the live stack:
 - **Two simultaneous replays of the same event** → one succeeds, the other gets an
   `OptimisticLockException` (`bin/concurrency-test-replay.sh`).
 
-Run them all with `just ccrc`. They run in CI on every push to `main`, after the main test job.
+Run them all with `just ccrc` (**disclosure**: *it'll reset your local database state*). 
+
+They run in CI on every push to `main`, after the main test job.
 
 ## Known limitations
 
