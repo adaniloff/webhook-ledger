@@ -124,6 +124,26 @@ final class WebhookEntityRepository extends ServiceEntityRepository
         $this->mark(uuid: $uuid, status: StatusEnum::DEAD, error: $error);
     }
 
+    /**
+     * @return array<string, int>
+     */
+    public function countByStatus(): array
+    {
+        /** @var list<array{status: StatusEnum, count: string}> $rows */
+        $rows = $this->createQueryBuilder('w')
+            ->select('w.status AS status', 'COUNT(w.id) AS count')
+            ->groupBy('w.status')
+            ->getQuery()
+            ->getResult();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[$row['status']->value] = (int) $row['count'];
+        }
+
+        return $counts;
+    }
+
     private function mark(
         string $uuid,
         StatusEnum $status,

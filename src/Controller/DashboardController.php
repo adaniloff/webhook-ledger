@@ -16,14 +16,19 @@ final class DashboardController extends AbstractController
     #[Route(path: '/', name: 'dashboard_homepage', methods: ['GET'])]
     public function homepage(): Response
     {
+        $webhooks = $this->repository->findBy(
+            criteria: [],
+            orderBy: ['updated_at' => 'DESC'],
+            limit: 40,
+        );
+        $counts = $this->repository->countByStatus();
+
         return $this->render(
             view: 'dashboard/homepage.html.twig',
             parameters: [
-                'webhooks' => $this->repository->findBy(
-                    criteria: [],
-                    orderBy: ['received_at' => 'DESC'],
-                    limit: 40,
-                ),
+                'webhooks' => $webhooks,
+                'counts' => $counts,
+                'total' => array_sum($counts),
             ],
         );
     }

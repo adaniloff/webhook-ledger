@@ -114,6 +114,8 @@ final class WebhookFixturesStory extends Story
             'last_error' => null,
             'version' => 1,
         ]);
+
+        WebhookEntityFactory::createMany(50);
     }
 
     /**

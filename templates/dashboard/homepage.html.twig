@@ -42,17 +42,11 @@
 {% set status_labels = {'r': 'Reçu', 'dis': 'Envoyé', 's': 'Réussi', 'f': 'Échoué', 'dead': 'Mort'} %}
 {% set status_order = ['r', 'dis', 's', 'f', 'dead'] %}
 
-{% set counts = {} %}
-{% for webhook in webhooks %}
-    {% set key = webhook.status.value %}
-    {% set counts = counts|merge({(key): (counts[key] ?? 0) + 1}) %}
-{% endfor %}
-
 <h1>Webhooks</h1>
 
 <div class="stats">
     <div class="stat" style="--accent: #1f2430;">
-        <span class="count">{{ webhooks|length }}</span>
+        <span class="count">{{ total }}</span>
         <span class="label">Total</span>
     </div>
     {% for key in status_order %}
@@ -80,7 +74,7 @@
             </tr>
         </thead>
         <tbody>
-            {% for webhook in webhooks|reverse %}
+            {% for webhook in webhooks %}
                 <tr title="{{ webhook.lastError }}">
                     <td class="uuid" title="{{ webhook.uuid }}">{{ webhook.uuid|slice(0, 8) }}…</td>
                     <td>{{ webhook.source.value }}</td>

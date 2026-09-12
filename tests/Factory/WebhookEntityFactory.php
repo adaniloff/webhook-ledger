@@ -39,16 +39,18 @@ final class WebhookEntityFactory extends PersistentProxyObjectFactory
          "x-number": "AC347D212341XR",
         }';
 
+        $receivedAt = self::faker()->dateTime();
+
         return [
             'attempts' => self::faker()->randomNumber(),
             'external_event_id' => self::faker()->text(255),
             'headers' => $headers,
             'payload' => self::faker()->text(),
-            'received_at' => \DateTimeImmutable::createFromMutable(self::faker()->dateTime()),
+            'received_at' => \DateTimeImmutable::createFromMutable($receivedAt),
             'signature_valid' => self::faker()->boolean(),
             'source' => self::faker()->randomElement(SourceEnum::cases()),
             'status' => self::faker()->randomElement(StatusEnum::cases()),
-            'updated_at' => \DateTimeImmutable::createFromMutable(self::faker()->dateTime()),
+            'updated_at' => \DateTimeImmutable::createFromMutable(self::faker()->dateTimeBetween($receivedAt)),
             'uuid' => Uuid::v7(),
             'version' => self::faker()->randomNumber(),
         ];
