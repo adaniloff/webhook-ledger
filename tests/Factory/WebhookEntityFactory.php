@@ -5,6 +5,7 @@ namespace App\Tests\Factory;
 use App\Entity\WebhookEntity;
 use App\Enum\SourceEnum;
 use App\Enum\StatusEnum;
+use Symfony\Component\Uid\Uuid;
 use Zenstruck\Foundry\Persistence\PersistentProxyObjectFactory;
 
 /**
@@ -48,7 +49,7 @@ final class WebhookEntityFactory extends PersistentProxyObjectFactory
             'source' => self::faker()->randomElement(SourceEnum::cases()),
             'status' => self::faker()->randomElement(StatusEnum::cases()),
             'updated_at' => \DateTimeImmutable::createFromMutable(self::faker()->dateTime()),
-            'uuid' => self::faker()->uuid(),
+            'uuid' => Uuid::v7(),
             'version' => self::faker()->randomNumber(),
         ];
     }

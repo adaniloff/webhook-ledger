@@ -9,13 +9,21 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class DashboardController extends AbstractController
 {
+    public function __construct(private WebhookEntityRepository $repository)
+    {
+    }
+
     #[Route(path: '/', name: 'dashboard_homepage', methods: ['GET'])]
-    public function homepage(WebhookEntityRepository $repository): Response
+    public function homepage(): Response
     {
         return $this->render(
             view: 'dashboard/homepage.html.twig',
             parameters: [
-                'webhooks' => $repository->findAll(),
+                'webhooks' => $this->repository->findBy(
+                    criteria: [],
+                    orderBy: ['received_at' => 'DESC'],
+                    limit: 40,
+                ),
             ],
         );
     }

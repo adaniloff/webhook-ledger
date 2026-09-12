@@ -158,7 +158,6 @@ They run in CI on every push to `main`, after the main test job.
 
 Deliberately out of scope for this iteration, not forgotten:
 
-- Minimalistic dashboard by design: list + replay button, no pagination or filters yet (coming soon).
 - No CSRF protection on the replay form -> not the point of this demo.
 - Basic Auth, not per-user auth -> not the point of this demo (again).
 - No payload transformation, subscription filtering, or multi-destination fan-out.
@@ -168,7 +167,6 @@ Deliberately out of scope for this iteration, not forgotten:
 
 ## Improvements I'm working on:
 
-- An improved dashboard with filters, pagination, etc.
 - Dissociating reception / worker with a better DDD approach-like.
 - Reworking the frontend as a React or VueJS SPA.
 - Making a Symfony bundle out of it.
