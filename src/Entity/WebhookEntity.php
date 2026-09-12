@@ -208,4 +208,9 @@ class WebhookEntity
 
         return $this;
     }
+
+    public function canReplay(): bool
+    {
+        return $this->getStatus()?->canReplay() && $this->isSignatureValid();
+    }
 }

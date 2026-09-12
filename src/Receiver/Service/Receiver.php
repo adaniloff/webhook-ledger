@@ -49,7 +49,7 @@ final readonly class Receiver
             if (!$entity = $this->repository->findOneBy(['uuid' => $uuid])) {
                 throw new WebhookNotFoundException(uuid: $uuid);
             }
-            if (!$entity->getStatus()?->canReplay() || !$entity->isSignatureValid()) {
+            if (!$entity->canReplay()) {
                 throw new WebhookNotReplayableException(uuid: $uuid);
             }
             $this->repository->replay(entity: $entity, version: $version);

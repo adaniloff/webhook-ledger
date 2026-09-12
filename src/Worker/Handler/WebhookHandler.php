@@ -23,11 +23,10 @@ final class WebhookHandler
         $this->webhookLogger->debug(sprintf('Handling message %s', $message->uuid));
 
         $webhook = $this->repository->findOneBy(['uuid' => $message->uuid]);
-
         match ($webhook?->getSource()) {
             SourceEnum::STRIPE => $this->stripe(webhook: $webhook),
             SourceEnum::GITHUB => $this->github(webhook: $webhook),
-            null => null,
+            null => $this->webhookLogger->warning(sprintf('Entity not found for uuid: %s', $message->uuid)),
         };
     }
 

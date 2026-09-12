@@ -2,10 +2,12 @@
 
 namespace App\Tests\Repository;
 
+use App\Entity\WebhookEntity;
 use App\Enum\SourceEnum;
 use App\Enum\StatusEnum;
 use App\Receiver\Dto\WebhookDto;
 use App\Receiver\Exception\WebhookEntryDuplicationException;
+use App\Receiver\Exception\WebhookOutdatedException;
 use App\Repository\WebhookEntityRepository;
 use App\Tests\Factory\WebhookEntityFactory;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -52,7 +54,7 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
         $this->assertSame(['content-type' => 'application/json'], $event->getHeaders());
     }
 
-    public function testReceiveButConstraintFailure(): void
+    public function testReceiveAlreadyExistingThrowsDuplicationException(): void
     {
         // Arrange
         $dto = new WebhookDto(
@@ -62,25 +64,9 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
             signature_valid: true,
         );
 
-        // Assert
-        $this->expectException(WebhookEntryDuplicationException::class);
-
-        // Act
         WebhookEntityFactory::assert()->empty();
-        $this->repository->receive(SourceEnum::STRIPE, $dto);
-        $this->repository->receive(SourceEnum::STRIPE, $dto);
-    }
-
-    public function testReceiveButConstraintFailureCarriesExistingIdentifier(): void
-    {
-        // Arrange
-        WebhookEntityFactory::assert()->empty();
-        $uuid = $this->repository->receive(SourceEnum::STRIPE, $dto = new WebhookDto(
-            external_event_id: 'some-external-id',
-            payload: '{"id":"some-external-id"}',
-            headers: ['content-type' => 'application/json'],
-            signature_valid: true,
-        ));
+        $uuid = $this->repository->receive(SourceEnum::STRIPE, $dto);
+        WebhookEntityFactory::assert()->count(1);
 
         try {
             // Act
@@ -96,23 +82,148 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
         $this->fail('Expected WebhookEntryDuplicationException to be thrown.');
     }
 
-    public function testMarkDispatchedSetsStatusAndIncrementsAttempts(): void
+    public function testMarkDispatched(): void
     {
+        // Arrange
+        $webhook = WebhookEntityFactory::createOne([
+            'status' => StatusEnum::RECEIVED,
+            'attempts' => $attempts = random_int(0, 15),
+        ]);
+
+        // Act
+        $this->repository->markDispatched(uuid: $webhook->getUuid());
+
+        // Assert
+        WebhookEntityFactory::assert()->exists([
+            'uuid' => $webhook->getUuid(),
+            'status' => StatusEnum::DISPATCHED,
+            'attempts' => ++$attempts,
+        ]);
     }
 
-    public function testMarkSucceededSetsStatusWithoutIncrementingAttempts(): void
+    public function testMarkSucceeded(): void
     {
+        // Arrange
+        $webhook = WebhookEntityFactory::createOne([
+            'status' => StatusEnum::RECEIVED,
+            'attempts' => $attempts = random_int(0, 15),
+        ]);
+
+        // Act
+        $this->repository->markSucceeded(uuid: $webhook->getUuid());
+
+        // Assert
+        WebhookEntityFactory::assert()->exists([
+            'uuid' => $webhook->getUuid(),
+            'status' => StatusEnum::SUCCEEDED,
+            'attempts' => $attempts,
+        ]);
     }
 
-    public function testMarkFailedSetsStatusAndLastError(): void
+    public function testMarkFailed(): void
     {
+        // Arrange
+        $webhook = WebhookEntityFactory::createOne(['status' => StatusEnum::DISPATCHED, 'last_error' => null]);
+
+        // Act
+        $this->repository->markFailed(uuid: $webhook->getUuid(), error: $errorMessage = 'boom');
+
+        // Assert
+        WebhookEntityFactory::assert()->exists([
+            'uuid' => $webhook->getUuid(),
+            'status' => StatusEnum::FAILED,
+            'last_error' => $errorMessage,
+        ]);
     }
 
-    public function testMarkDeadSetsStatusAndLastError(): void
+    public function testMarkDead(): void
     {
+        // Arrange
+        $webhook = WebhookEntityFactory::createOne(['status' => StatusEnum::DISPATCHED, 'last_error' => null]);
+
+        // Act
+        $this->repository->markDead(uuid: $webhook->getUuid(), error: $errorMessage = 'dead-boom');
+
+        // Assert
+        WebhookEntityFactory::assert()->exists([
+            'uuid' => $webhook->getUuid(),
+            'status' => StatusEnum::DEAD,
+            'last_error' => $errorMessage,
+        ]);
     }
 
-    public function testMarkIsNoopWhenAlreadyAtTargetStatus(): void
+    public function testMarkIsNoopWhenSameStatus(): void
     {
+        // Arrange
+        $webhook = WebhookEntityFactory::createOne([
+            'status' => StatusEnum::DISPATCHED,
+            'attempts' => $attempts = random_int(0, 13),
+        ]);
+
+        // Act
+        $this->repository->markDispatched(uuid: $webhook->getUuid());
+
+        // Assert
+        WebhookEntityFactory::assert()->exists([
+            'uuid' => $webhook->getUuid(),
+            'status' => StatusEnum::DISPATCHED,
+            'attempts' => $attempts,
+        ]);
+    }
+
+    public function testReplayBumpVersion(): void
+    {
+        // Arrange
+        $webhook = WebhookEntityFactory::createOne([
+            'status' => StatusEnum::DEAD,
+            'version' => $version = 1,
+        ]);
+
+        // Act
+        $this->repository->replay(entity: $webhook->_real(), version: $version);
+
+        // Assert
+        WebhookEntityFactory::assert()->exists([
+            'uuid' => $webhook->getUuid(),
+            'status' => StatusEnum::RECEIVED,
+            'version' => ++$version,
+        ]);
+    }
+
+    public function testReplayThrowsOutdatedExceptionOnStaleVersion(): void
+    {
+        // Arrange
+        $uuid = WebhookEntityFactory::createOne(['status' => StatusEnum::DEAD])->getUuid();
+
+        //
+        // Doctrine override version number set through Foundry
+        // --> must update or insert through Doctrine directly
+        //
+        $em = self::getContainer()->get($this->repository::class)->getEntityManager();
+        $metadata = $em->getClassMetadata(WebhookEntity::class);
+        $rowCount = $em->getConnection()
+            ->executeStatement("UPDATE {$metadata->getTableName()} SET version = 2");
+        $this->assertEquals(1, $rowCount);
+
+        // Act
+        try {
+            $this->repository->replay(
+                entity: $webhook = $this->repository->findOneBy(['uuid' => $uuid]),
+                version: 1,
+            );
+        } catch (WebhookOutdatedException $e) {
+            // Assert
+            $this->assertEquals(1, $e->getOutdatedVersion());
+            $this->assertEquals((string) $webhook->getUuid(), $e->getIdentifier());
+            WebhookEntityFactory::assert()->exists([
+                'uuid' => $webhook->getUuid(),
+                'status' => StatusEnum::DEAD,
+                'version' => 2,
+            ]);
+
+            return;
+        }
+
+        $this->fail('A WebhookOutdatedException should have been thrown.');
     }
 }
