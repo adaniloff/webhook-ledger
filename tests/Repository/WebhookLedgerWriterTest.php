@@ -8,19 +8,20 @@ use App\Enum\StatusEnum;
 use App\Receiver\Dto\WebhookDto;
 use App\Receiver\Exception\WebhookEntryDuplicationException;
 use App\Receiver\Exception\WebhookOutdatedException;
-use App\Repository\WebhookEntityRepository;
+use App\Repository\WebhookLedgerWriter;
 use App\Tests\Factory\WebhookEntityFactory;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Zenstruck\Foundry\Attribute\ResetDatabase;
 
 #[ResetDatabase]
-final class WebhookEntityRepositoryTest extends KernelTestCase
+final class WebhookLedgerWriterTest extends KernelTestCase
 {
-    private WebhookEntityRepository $repository;
+    private WebhookLedgerWriter $writer;
 
     public function setUp(): void
     {
-        $this->repository = static::getContainer()->get(WebhookEntityRepository::class);
+        $this->writer = static::getContainer()->get(WebhookLedgerWriter::class);
     }
 
     public function testReceiveOnceSucceed(): void
@@ -35,7 +36,7 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
 
         // Act
         WebhookEntityFactory::assert()->empty();
-        $this->repository->receive(SourceEnum::STRIPE, $dto);
+        $this->writer->receive(SourceEnum::STRIPE, $dto);
 
         // Assert
         WebhookEntityFactory::assert()
@@ -50,7 +51,7 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
                 'payload' => '{"id":"some-external-id"}',
             ]);
 
-        $event = $this->repository->findOneBy(['external_event_id' => 'some-external-id']);
+        $event = WebhookEntityFactory::repository()->findOneBy(['external_event_id' => 'some-external-id']);
         $this->assertSame(['content-type' => 'application/json'], $event->getHeaders());
     }
 
@@ -65,12 +66,12 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
         );
 
         WebhookEntityFactory::assert()->empty();
-        $uuid = $this->repository->receive(SourceEnum::STRIPE, $dto);
+        $uuid = $this->writer->receive(SourceEnum::STRIPE, $dto);
         WebhookEntityFactory::assert()->count(1);
 
         try {
             // Act
-            $this->repository->receive(SourceEnum::STRIPE, $dto);
+            $this->writer->receive(SourceEnum::STRIPE, $dto);
         } catch (WebhookEntryDuplicationException $e) {
             // Assert
             $this->assertSame((string) $uuid, $e->getIdentifier());
@@ -91,7 +92,7 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
         ]);
 
         // Act
-        $this->repository->markDispatched(uuid: $webhook->getUuid());
+        $this->writer->markDispatched(uuid: $webhook->getUuid());
 
         // Assert
         WebhookEntityFactory::assert()->exists([
@@ -110,7 +111,7 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
         ]);
 
         // Act
-        $this->repository->markSucceeded(uuid: $webhook->getUuid());
+        $this->writer->markSucceeded(uuid: $webhook->getUuid());
 
         // Assert
         WebhookEntityFactory::assert()->exists([
@@ -126,7 +127,7 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
         $webhook = WebhookEntityFactory::createOne(['status' => StatusEnum::DISPATCHED, 'last_error' => null]);
 
         // Act
-        $this->repository->markFailed(uuid: $webhook->getUuid(), error: $errorMessage = 'boom');
+        $this->writer->markFailed(uuid: $webhook->getUuid(), error: $errorMessage = 'boom');
 
         // Assert
         WebhookEntityFactory::assert()->exists([
@@ -142,7 +143,7 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
         $webhook = WebhookEntityFactory::createOne(['status' => StatusEnum::DISPATCHED, 'last_error' => null]);
 
         // Act
-        $this->repository->markDead(uuid: $webhook->getUuid(), error: $errorMessage = 'dead-boom');
+        $this->writer->markDead(uuid: $webhook->getUuid(), error: $errorMessage = 'dead-boom');
 
         // Assert
         WebhookEntityFactory::assert()->exists([
@@ -161,7 +162,7 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
         ]);
 
         // Act
-        $this->repository->markDispatched(uuid: $webhook->getUuid());
+        $this->writer->markDispatched(uuid: $webhook->getUuid());
 
         // Assert
         WebhookEntityFactory::assert()->exists([
@@ -180,7 +181,7 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
         ]);
 
         // Act
-        $this->repository->replay(entity: $webhook->_real(), version: $version);
+        $this->writer->replay(entity: $webhook->_real(), version: $version);
 
         // Assert
         WebhookEntityFactory::assert()->exists([
@@ -199,7 +200,7 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
         // Doctrine override version number set through Foundry
         // --> must update or insert through Doctrine directly
         //
-        $em = self::getContainer()->get($this->repository::class)->getEntityManager();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
         $metadata = $em->getClassMetadata(WebhookEntity::class);
         $rowCount = $em->getConnection()
             ->executeStatement("UPDATE {$metadata->getTableName()} SET version = 2");
@@ -207,8 +208,8 @@ final class WebhookEntityRepositoryTest extends KernelTestCase
 
         // Act
         try {
-            $this->repository->replay(
-                entity: $webhook = $this->repository->findOneBy(['uuid' => $uuid]),
+            $this->writer->replay(
+                entity: $webhook = $em->getRepository(WebhookEntity::class)->findOneBy(['uuid' => $uuid]),
                 version: 1,
             );
         } catch (WebhookOutdatedException $e) {

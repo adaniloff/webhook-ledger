@@ -7,6 +7,10 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 compose() { docker compose --env-file .env --env-file .env.local exec -T "$@"; }
 
+set -a
+[ -f .env.local ] && source .env.local
+set +a
+
 BASE_URL="http://localhost:${HTTP_PORT:-8080}"
 
 ok() {

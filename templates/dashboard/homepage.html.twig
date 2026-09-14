@@ -37,17 +37,32 @@
     .replay-btn:hover { background: #fecaca; }
     .replay-form { margin: 0; display: inline; }
     .no-action { color: #d1d5db; }
+    .filters { display: flex; gap: .75rem; margin-bottom: 1.25rem; }
+    .filters select { padding: .35rem .5rem; border-radius: 6px; border: 1px solid #d1d5db; background: #fff; font: inherit; }
+    .filter-btn {
+        padding: .35rem .9rem; border-radius: 6px; border: none; cursor: pointer;
+        background: #1f2430; color: #fff; font: inherit; font-weight: 600; font-size: .85rem;
+    }
+    .filter-btn:hover { background: #333a4a; }
+    .stats-note { margin: -.5rem 0 1.25rem; font-size: .8rem; color: #6b7280; }
+
+    .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; font-size: .85rem; color: #6b7280; }
+    .pagination a { color: #1f2430; text-decoration: none; }
+    .pagination .disabled { color: #d1d5db; }
 </style>
 
 {% set status_labels = {'r': 'Reçu', 'dis': 'Envoyé', 's': 'Réussi', 'f': 'Échoué', 'dead': 'Mort'} %}
 {% set status_order = ['r', 'dis', 's', 'f', 'dead'] %}
+{% set filter_params = {} %}
+{% if selected_source is not null %}{% set filter_params = filter_params|merge({'source': selected_source.value}) %}{% endif %}
+{% if selected_status is not null %}{% set filter_params = filter_params|merge({'status': selected_status.value}) %}{% endif %}
 
 <h1>Webhooks</h1>
 
 <div class="stats">
     <div class="stat" style="--accent: #1f2430;">
         <span class="count">{{ total }}</span>
-        <span class="label">Total</span>
+        <span class="label">Total (global)</span>
     </div>
     {% for key in status_order %}
         <div class="stat" style="--accent: {{ {'r':'#6b7280','dis':'#6366f1','s':'#22c55e','f':'#f59e0b','dead':'#ef4444'}[key] }};">
@@ -56,9 +71,32 @@
         </div>
     {% endfor %}
 </div>
+<p class="stats-note">Ces compteurs sont globaux et ne tiennent pas compte du filtre actif.</p>
+
+<form class="filters" method="get">
+    <select name="source">
+        <option value="">Toutes les sources</option>
+        {% for source in sources %}
+            <option value="{{ source.value }}" {{ selected_source == source ? 'selected' }}>{{ source.value }}</option>
+        {% endfor %}
+    </select>
+    <select name="status">
+        <option value="">Tous les statuts</option>
+        {% for status in statuses %}
+            <option value="{{ status.value }}" {{ selected_status == status ? 'selected' }}>{{ status_labels[status.value] }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="filter-btn">Filtrer</button>
+</form>
 
 {% if webhooks is empty %}
-    <div class="empty">Aucun webhook reçu pour l'instant.</div>
+    <div class="empty">
+        {% if total == 0 %}
+            Aucun webhook reçu pour l'instant.
+        {% else %}
+            Aucun webhook ne correspond aux filtres sélectionnés.
+        {% endif %}
+    </div>
 {% else %}
     <table>
         <thead>
@@ -101,4 +139,20 @@
             {% endfor %}
         </tbody>
     </table>
+
+    <div class="pagination">
+        {% if page > 1 %}
+            <a href="{{ path('dashboard_homepage', filter_params|merge({page: page - 1})) }}">&laquo; Précédent</a>
+        {% else %}
+            <span class="disabled">&laquo; Précédent</span>
+        {% endif %}
+
+        <span>Page {{ page }} / {{ totalPages }}</span>
+
+        {% if page < totalPages %}
+            <a href="{{ path('dashboard_homepage', filter_params|merge({page: page + 1})) }}">Suivant &raquo;</a>
+        {% else %}
+            <span class="disabled">Suivant &raquo;</span>
+        {% endif %}
+    </div>
 {% endif %}

@@ -2,33 +2,29 @@
 
 namespace App\Repository;
 
+use App\Domain\WebhookLedgerWriterInterface;
 use App\Entity\WebhookEntity;
 use App\Enum\SourceEnum;
 use App\Enum\StatusEnum;
 use App\Receiver\Dto\WebhookDto;
 use App\Receiver\Exception\WebhookEntryDuplicationException;
 use App\Receiver\Exception\WebhookOutdatedException;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\OptimisticLockException;
-use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
 
-/**
- * @extends ServiceEntityRepository<WebhookEntity>
- */
-final class WebhookEntityRepository extends ServiceEntityRepository
+final readonly class WebhookLedgerWriter implements WebhookLedgerWriterInterface
 {
-    public function __construct(ManagerRegistry $registry)
+    public function __construct(private EntityManagerInterface $em)
     {
-        parent::__construct($registry, WebhookEntity::class);
     }
 
     public function receive(SourceEnum $source, WebhookDto $dto, int $attempts = 0, int $version = 1): Uuid
     {
         $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
-        $em = $this->getEntityManager();
+        $em = $this->em;
         $metadata = $em->getClassMetadata(WebhookEntity::class);
         $table = $metadata->getTableName();
 
@@ -91,14 +87,12 @@ final class WebhookEntityRepository extends ServiceEntityRepository
 
     public function replay(WebhookEntity $entity, int $version): void
     {
-        $em = $this->getEntityManager();
-
         try {
+            $this->em->lock($entity, LockMode::OPTIMISTIC, $version);
             $entity->setStatus(StatusEnum::RECEIVED);
             $entity->setUpdatedAt($now = new \DateTimeImmutable());
             $entity->setReceivedAt($now);
-            $em->lock($entity, LockMode::OPTIMISTIC, $version);
-            $em->flush();
+            $this->em->flush();
         } catch (OptimisticLockException $e) {
             throw new WebhookOutdatedException(uuid: (string) $entity->getUuid(), outdatedVersion: $version, previous: $e);
         }
@@ -124,33 +118,13 @@ final class WebhookEntityRepository extends ServiceEntityRepository
         $this->mark(uuid: $uuid, status: StatusEnum::DEAD, error: $error);
     }
 
-    /**
-     * @return array<string, int>
-     */
-    public function countByStatus(): array
-    {
-        /** @var list<array{status: StatusEnum, count: string}> $rows */
-        $rows = $this->createQueryBuilder('w')
-            ->select('w.status AS status', 'COUNT(w.id) AS count')
-            ->groupBy('w.status')
-            ->getQuery()
-            ->getResult();
-
-        $counts = [];
-        foreach ($rows as $row) {
-            $counts[$row['status']->value] = (int) $row['count'];
-        }
-
-        return $counts;
-    }
-
     private function mark(
         string $uuid,
         StatusEnum $status,
         bool $incrementAttempts = false,
         ?string $error = null,
     ): void {
-        $em = $this->getEntityManager();
+        $em = $this->em;
         $metadata = $em->getClassMetadata(WebhookEntity::class);
         $table = $metadata->getTableName();
 

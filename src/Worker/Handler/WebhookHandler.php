@@ -2,9 +2,9 @@
 
 namespace App\Worker\Handler;
 
+use App\Domain\WebhookLedgerRepositoryInterface;
 use App\Entity\WebhookEntity;
 use App\Enum\SourceEnum;
-use App\Repository\WebhookEntityRepository;
 use App\Worker\Message\ProcessWebhookEvent;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -14,7 +14,7 @@ final class WebhookHandler
 {
     public function __construct(
         private LoggerInterface $webhookLogger,
-        private WebhookEntityRepository $repository,
+        private WebhookLedgerRepositoryInterface $repository,
     ) {
     }
 

@@ -10,7 +10,7 @@ DELIVERY="concurrency-worker-$(date +%s%N)"
 RAW="{\"delivery\":\"$DELIVERY\"}"
 SIGNATURE=$(sign "$RAW")
 
-curl -s -o /dev/null -X POST "$BASE_URL/webhook/github" \
+curl -s -o /dev/null -L -X POST "$BASE_URL/webhook/github" \
     -H 'Content-Type: application/json' \
     -H "X-GitHub-Delivery: $DELIVERY" \
     -H "X-Hub-Signature-256: sha256=$SIGNATURE" \

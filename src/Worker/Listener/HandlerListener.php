@@ -2,7 +2,7 @@
 
 namespace App\Worker\Listener;
 
-use App\Repository\WebhookEntityRepository;
+use App\Domain\WebhookLedgerWriterInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
 use Symfony\Component\Messenger\Event\WorkerMessageHandledEvent;
@@ -10,7 +10,7 @@ use Symfony\Component\Messenger\Event\WorkerMessageReceivedEvent;
 
 final readonly class HandlerListener
 {
-    public function __construct(private WebhookEntityRepository $repository)
+    public function __construct(private WebhookLedgerWriterInterface $repository)
     {
     }
 

@@ -2,11 +2,12 @@
 
 namespace App\Receiver\Service;
 
+use App\Domain\WebhookLedgerRepositoryInterface;
+use App\Domain\WebhookLedgerWriterInterface;
 use App\Enum\SourceEnum;
 use App\Receiver\Dto\WebhookDto;
 use App\Receiver\Exception\WebhookNotFoundException;
 use App\Receiver\Exception\WebhookNotReplayableException;
-use App\Repository\WebhookEntityRepository;
 use App\Worker\Message\ProcessWebhookEvent;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -17,7 +18,8 @@ final readonly class Receiver
     public function __construct(
         private Connection $conn,
         private MessageBusInterface $bus,
-        private WebhookEntityRepository $repository,
+        private WebhookLedgerWriterInterface $writer,
+        private WebhookLedgerRepositoryInterface $reader,
         private WebhookSigner $signer,
     ) {
     }
@@ -33,7 +35,7 @@ final readonly class Receiver
     public function capture(SourceEnum $source, WebhookDto $dto, bool $payloadValid): Uuid
     {
         return $this->conn->transactional(function () use ($source, $dto, $payloadValid): Uuid {
-            $uuid = $this->repository->receive(source: $source, dto: $dto);
+            $uuid = $this->writer->receive(source: $source, dto: $dto);
 
             if ($dto->signature_valid && $payloadValid) {
                 $this->bus->dispatch(new ProcessWebhookEvent(uuid: $uuid->toRfc4122()));
@@ -46,13 +48,13 @@ final readonly class Receiver
     public function replay(Uuid|string $uuid, int $version): void
     {
         $this->conn->transactional(function () use ($uuid, $version): void {
-            if (!$entity = $this->repository->findOneBy(['uuid' => $uuid])) {
+            if (!$entity = $this->reader->findOneBy(['uuid' => $uuid])) {
                 throw new WebhookNotFoundException(uuid: $uuid);
             }
             if (!$entity->canReplay()) {
                 throw new WebhookNotReplayableException(uuid: $uuid);
             }
-            $this->repository->replay(entity: $entity, version: $version);
+            $this->writer->replay(entity: $entity, version: $version);
             $this->bus->dispatch(new ProcessWebhookEvent(uuid: $uuid));
         });
     }
