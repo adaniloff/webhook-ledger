@@ -30,6 +30,7 @@ for some explanations, issues I've encountered, trade-offs I've chosen to take.
 - (test) building a set of fixtures.
 - (arch) quicken the Github/Stripe signature ascertainment.
 - (prod) generating the `WebhookEntity` and `WebhookDto`.
+- (chores) generating part of this README.
 
 I wanted not to overuse it, as the goal was, like I said, to explore by myself.
 
@@ -134,9 +135,6 @@ than a second dispatch.
 
 - **Constant-time signature verification, per source.** An invalid signature still gets persisted
 (`signature_valid = false`) as intel (and returns `401`), but is never dispatched to a worker.
-
-- **"Outbox" is a stretch of the term on purpose.** What's built isn't the *textbook
-Transactional Outbox pattern*, however it serves (and delivers!) the same intent.
 
 ## Concurrency proof
 

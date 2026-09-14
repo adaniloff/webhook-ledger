@@ -7,7 +7,8 @@
         "/vendor/**/tests/**/*",
         "/var/cache/**/*",
         "/vendor/composer/**/*",
-        "/vendor/**/*.phar/**/*"
+        "/vendor/**/*.phar/**/*",
+        "/.claude/worktrees/**/*"
     ],
     "language_server_phpstan.enabled": false
 }
