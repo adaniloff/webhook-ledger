@@ -57,6 +57,10 @@
 {% if selected_source is not null %}{% set filter_params = filter_params|merge({'source': selected_source.value}) %}{% endif %}
 {% if selected_status is not null %}{% set filter_params = filter_params|merge({'status': selected_status.value}) %}{% endif %}
 
+{% for message in app.flashes('error') %}
+    <div class="empty" style="color:#b91c1c;">{{ message }}</div>
+{% endfor %}
+
 <h1>Webhooks</h1>
 
 <div class="stats">

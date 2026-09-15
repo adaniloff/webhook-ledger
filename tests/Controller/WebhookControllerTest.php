@@ -2,14 +2,18 @@
 
 namespace App\Tests\Controller;
 
+use App\Entity\WebhookEntity;
 use App\Enum\SourceEnum;
+use App\Enum\StatusEnum;
 use App\Receiver\Service\WebhookSigner;
 use App\Tests\Factory\WebhookEntityFactory;
 use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
 use Monolog\Handler\TestHandler;
 use Monolog\Level;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Uid\Uuid;
 use Zenstruck\Foundry\Attribute\ResetDatabase;
 
 #[ResetDatabase]
@@ -207,6 +211,71 @@ final class WebhookControllerTest extends WebTestCase
             ->count(1)
             ->exists(['signature_valid' => false])
         ;
+    }
+
+    public function testReplayReturns404WhenWebhookNotFound(): void
+    {
+        // Arrange
+        // Act
+        $this->client->jsonRequest(method: 'POST', uri: '/webhook/'.Uuid::v7().'?version=1');
+
+        // Assert
+        $this->assertResponseStatusCodeSame(404);
+    }
+
+    public function testReplayReturns409WhenWebhookNotReplayable(): void
+    {
+        // Arrange
+        $webhook = WebhookEntityFactory::createOne([
+            'status' => StatusEnum::FAILED,
+            'signature_valid' => true,
+            'version' => 1,
+        ]);
+
+        // Act
+        $this->client->jsonRequest(method: 'POST', uri: '/webhook/'.$webhook->getUuid().'?version=1');
+
+        // Assert
+        $this->assertResponseStatusCodeSame(409);
+    }
+
+    public function testReplayReturns409WhenWebhookOutdated(): void
+    {
+        // Arrange
+        $uuid = WebhookEntityFactory::createOne(['status' => StatusEnum::DEAD, 'signature_valid' => true])->getUuid();
+
+        //
+        // Doctrine override version number set through Foundry
+        // --> must update or insert through Doctrine directly
+        //
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $metadata = $em->getClassMetadata(WebhookEntity::class);
+        $rowCount = $em->getConnection()
+            ->executeStatement("UPDATE {$metadata->getTableName()} SET version = 5");
+        $this->assertEquals(1, $rowCount);
+
+        // Act
+        $this->client->jsonRequest(method: 'POST', uri: '/webhook/'.$uuid.'?version=2');
+
+        // Assert
+        $this->assertResponseStatusCodeSame(409);
+    }
+
+    public function testReplayReturns202OnSuccess(): void
+    {
+        // Arrange
+        $webhook = WebhookEntityFactory::createOne([
+            'status' => StatusEnum::DEAD,
+            'signature_valid' => true,
+            'version' => 1,
+        ]);
+
+        // Act
+        $this->client->jsonRequest(method: 'POST', uri: '/webhook/'.$webhook->getUuid().'?version=1');
+
+        // Assert
+        $this->assertResponseStatusCodeSame(202);
+        $this->assertSame((string) $webhook->getUuid(), $this->client->getResponse()->headers->get('X-Evt-Id'));
     }
 
     private function countMessengerMessages(): int

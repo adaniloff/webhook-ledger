@@ -5,17 +5,16 @@ namespace App\Controller;
 use App\Enum\SourceEnum;
 use App\Receiver\Dto\WebhookDto;
 use App\Receiver\Exception\WebhookEntryDuplicationException;
+use App\Receiver\Exception\WebhookNotFoundException;
+use App\Receiver\Exception\WebhookNotReplayableException;
+use App\Receiver\Exception\WebhookOutdatedException;
 use App\Receiver\Service\Receiver;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
-use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\Console\Input\ArrayInput;
-use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Uid\Uuid;
@@ -36,31 +35,63 @@ final class WebhookController extends AbstractController implements LoggerAwareI
     public function replay(
         Uuid $uuid,
         Request $request,
-        KernelInterface $kernel,
+        Receiver $receiver,
     ): Response {
         $version = (int) $request->query->get('version', 0);
         if ($version < 1) {
             throw new InvalidArgumentException(sprintf('Invalid version number: %s', $version));
         }
 
-        $application = new Application($kernel);
-        $application->setAutoExit(false);
+        try {
+            $receiver->replay(uuid: $uuid, version: $version);
+        } catch (WebhookNotFoundException $e) {
+            return $this->replayErrorResponse(
+                request: $request,
+                message: sprintf('Webhook %s not found.', $e->getIdentifier()),
+                status: 404,
+            );
+        } catch (WebhookNotReplayableException $e) {
+            return $this->replayErrorResponse(
+                request: $request,
+                message: sprintf('Webhook %s is not replayable.', $e->getIdentifier()),
+                status: 409,
+            );
+        } catch (WebhookOutdatedException $e) {
+            return $this->replayErrorResponse(
+                request: $request,
+                message: sprintf(
+                    'Webhook %s version is outdated (expected %s).',
+                    $e->getIdentifier(),
+                    $e->getOutdatedVersion(),
+                ),
+                status: 409,
+            );
+        }
 
-        $input = new ArrayInput([
-            'command' => 'app:webhook:replay',
-            'uuid' => (string) $uuid,
-            'version' => $version,
-        ]);
-
-        $output = new NullOutput();
-        $application->run($input, $output);
-
-        // @todo: remove once the dashboard is a React app calling this as a JSON API
-        if (str_contains((string) $request->headers->get('Accept'), 'text/html')) {
+        // @todo: remove when the frontend is a ReactJS/VueJS app
+        if ($this->isHtml($request)) {
             return $this->redirectToRoute('dashboard_homepage');
         }
 
         return new Response(content: '', headers: ['X-Evt-Id' => $uuid], status: 202);
+    }
+
+    #[\Deprecated(message: 'to be remove after ReactJS/VueJS frontend implementation')]
+    private function replayErrorResponse(Request $request, string $message, int $status): Response
+    {
+        if ($this->isHtml($request)) {
+            $this->addFlash('error', $message);
+
+            return $this->redirectToRoute('dashboard_homepage');
+        }
+
+        return $this->json(data: ['error' => $message, 'fields' => []], status: $status);
+    }
+
+    #[\Deprecated(message: 'to be remove after ReactJS/VueJS frontend implementation')]
+    private function isHtml(Request $request): bool
+    {
+        return str_contains((string) $request->headers->get('Accept'), 'text/html');
     }
 
     #[Route(path: '/webhook/{source}', name: 'webhook_hook', methods: ['POST'], format: 'json')]
