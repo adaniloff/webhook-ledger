@@ -24,6 +24,7 @@
     </testsuites>
 
     <source ignoreSuppressionOfDeprecations="true"
+            ignoreSelfDeprecations="true"
             ignoreIndirectDeprecations="true"
             restrictNotices="true"
             restrictWarnings="true"
