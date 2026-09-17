@@ -1,11 +1,25 @@
 # Webhook Ledger
 
+[![PHP](https://img.shields.io/badge/PHP-8.2-777bb4)](https://www.php.net/)
+[![Symfony](https://img.shields.io/badge/Symfony-7.4-000000)](https://symfony.com/)
+[![Deploy](https://img.shields.io/badge/deploy-Clever%20Cloud-1cc4a4)](https://www.clever-cloud.com/)
+
 A small Symfony service that receives webhooks (Stripe, GitHub), persists them **before**
 acknowledging, deduplicates by `(source, external_event_id)`, dispatches processing with retry
 and a dead-letter queue, and lets you replay a dead event without reprocessing it twice.
 
-Deployed on [Clever Cloud](https://www.clever-cloud.com/) - every push to `main` triggers a
-deploy.
+## Table of contents
+
+- [Live instance (demo)](#live-instance-demo)
+- [Reusable bundle](#reusable-bundle)
+- [Why](#why)
+- [The flow](#the-flow)
+- [Stack](#stack)
+- [Running it locally](#running-it-locally)
+- [Endpoints](#endpoints)
+- [Decisions](#decisions)
+- [Concurrency proof](#concurrency-proof)
+- [Scope](#scope)
 
 ## Live instance (demo)
 
@@ -30,7 +44,10 @@ or (eventually) rework the pattern for a Symfony application.
 See [Concurrency proof](#concurrency-proof) for how that's tested, and [Decisions](#decisions)
 for some explanations, issues I've encountered, trade-offs I've chosen to take.
 
-**About AI usage**: I've had *Claude* assist me code minor chores like:
+<details>
+<summary><strong>About AI usage</strong></summary>
+
+I've had *Claude* assist me code minor chores like:
 - (test) setting up the concurrency test scripts.
 - (test) building a set of fixtures.
 - (arch) quicken the Github/Stripe signature ascertainment.
@@ -38,7 +55,12 @@ for some explanations, issues I've encountered, trade-offs I've chosen to take.
 
 I wanted not to overuse it, as the goal was, like I said, to explore by myself.
 
+</details>
+
 ## The flow
+
+<details open>
+<summary>Mermaid diagram</summary>
 
 ```mermaid
 flowchart TD
@@ -61,6 +83,8 @@ flowchart TD
     RC -->|stale version| RE["rejected:<br/>WebhookOutdatedException"]
     RC -->|current version| RS["status back to received<br/>+ re-dispatched"]
 ```
+
+</details>
 
 Only the UUID travels to the queue. The database row *stays* the single source of truth.
 
@@ -125,13 +149,14 @@ the live stack:
 - **Two simultaneous replays of the same event** → one succeeds, the other gets an
   `OptimisticLockException` (`bin/concurrency-test-replay.sh`).
 
-Run them all with `just ccrc` (**disclosure**: *it'll reset your local database state*). 
+Run them all with `just ccrc` (**disclosure**: *it'll reset your local database state*).
 
 They run in CI on every push to `main`, after the main test job.
 
-## Known limitations
+## Scope
 
-Deliberately out of scope for this iteration, not forgotten:
+<details>
+<summary><strong>Known limitations</strong> - deliberately out of scope for this iteration, not forgotten</summary>
 
 - No CSRF protection on the replay form -> not the point of this demo.
 - Basic Auth, not per-user auth -> not the point of this demo (again).
@@ -140,6 +165,11 @@ Deliberately out of scope for this iteration, not forgotten:
 - No multi-tenancy.
 - No automatic data purge.
 
-## Improvements (todo-list)
+</details>
+
+<details>
+<summary><strong>Improvements</strong> (todo-list)</summary>
 
 - Reworking the frontend as a React or VueJS SPA.
+
+</details>
