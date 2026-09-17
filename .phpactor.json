@@ -8,6 +8,7 @@
         "/var/cache/**/*",
         "/vendor/composer/**/*",
         "/vendor/**/*.phar/**/*",
+        "/vendor/webhook-ledger/**/*",
         "/.claude/worktrees/**/*"
     ],
     "language_server_phpstan.enabled": false

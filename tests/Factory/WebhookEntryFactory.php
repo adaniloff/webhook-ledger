@@ -1,17 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Factory;
 
-use App\Entity\WebhookEntity;
-use App\Enum\SourceEnum;
-use App\Enum\StatusEnum;
+use App\Webhook\Adapter\GithubAdapter;
+use App\Webhook\Adapter\StripeAdapter;
 use Symfony\Component\Uid\Uuid;
+use WebhookLedger\Domain\Enum\StatusEnum;
+use WebhookLedger\Infrastructure\Doctrine\Entity\WebhookEntry;
+use Zenstruck\Foundry\Object\Instantiator;
 use Zenstruck\Foundry\Persistence\PersistentProxyObjectFactory;
 
 /**
- * @extends PersistentProxyObjectFactory<WebhookEntity>
+ * @extends PersistentProxyObjectFactory<WebhookEntry>
  */
-final class WebhookEntityFactory extends PersistentProxyObjectFactory
+final class WebhookEntryFactory extends PersistentProxyObjectFactory
 {
     /**
      * @see https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#factories-as-services
@@ -24,7 +28,7 @@ final class WebhookEntityFactory extends PersistentProxyObjectFactory
 
     public static function class(): string
     {
-        return WebhookEntity::class;
+        return WebhookEntry::class;
     }
 
     /**
@@ -34,10 +38,10 @@ final class WebhookEntityFactory extends PersistentProxyObjectFactory
      */
     protected function defaults(): array|callable
     {
-        $headers = '{
-         "content-type": "application/json",
-         "x-number": "AC347D212341XR",
-        }';
+        $headers = [
+            'content-type' => 'application/json',
+            'x-number' => 'AC347D212341XR',
+        ];
 
         $receivedAt = self::faker()->dateTime();
 
@@ -48,10 +52,10 @@ final class WebhookEntityFactory extends PersistentProxyObjectFactory
             'payload' => self::faker()->text(),
             'received_at' => \DateTimeImmutable::createFromMutable($receivedAt),
             'signature_valid' => self::faker()->boolean(),
-            'source' => self::faker()->randomElement(SourceEnum::cases()),
+            'source' => self::faker()->randomElement([StripeAdapter::NAME, GithubAdapter::NAME]),
             'status' => self::faker()->randomElement(StatusEnum::cases()),
             'updated_at' => \DateTimeImmutable::createFromMutable(self::faker()->dateTimeBetween($receivedAt)),
-            'uuid' => Uuid::v7(),
+            'uuid' => (string) Uuid::v7(),
             'version' => self::faker()->randomNumber(),
         ];
     }
@@ -61,8 +65,6 @@ final class WebhookEntityFactory extends PersistentProxyObjectFactory
      */
     protected function initialize(): static
     {
-        return $this
-            // ->afterInstantiate(function(WebhookEntity $webhookEntity): void {})
-        ;
+        return $this->instantiateWith(Instantiator::withoutConstructor()->alwaysForce());
     }
 }

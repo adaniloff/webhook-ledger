@@ -18,9 +18,9 @@ compose database mysql -uapp -papp app -e "
 
 out1=$(mktemp)
 out2=$(mktemp)
-compose php bin/console app:webhook:replay "$UUID" 1 >"$out1" 2>&1 &
+compose php bin/console webhook-ledger:replay "$UUID" 1 >"$out1" 2>&1 &
 replay1=$!
-compose php bin/console app:webhook:replay "$UUID" 1 >"$out2" 2>&1 &
+compose php bin/console webhook-ledger:replay "$UUID" 1 >"$out2" 2>&1 &
 replay2=$!
 
 set +e

@@ -1,16 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Factory\Story;
 
-use App\Enum\SourceEnum;
-use App\Enum\StatusEnum;
-use App\Tests\Factory\WebhookEntityFactory;
+use App\Tests\Factory\WebhookEntryFactory;
+use App\Webhook\Adapter\GithubAdapter;
+use App\Webhook\Adapter\StripeAdapter;
+use WebhookLedger\Domain\Enum\StatusEnum;
 use Zenstruck\Foundry\Attribute\AsFixture;
 use Zenstruck\Foundry\Story;
 
 /**
  * Jeu de webhooks couvrant les statuts et sources du ledger, pour peupler
- * le back-office et tester la commande `app:webhook:replay` sans attendre
+ * le back-office et tester la commande `webhook-ledger:replay` sans attendre
  * un vrai cycle de retry Messenger.
  *
  * @see https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#stories
@@ -21,8 +24,8 @@ final class WebhookFixturesStory extends Story
     public function build(): void
     {
         // reçu, pas encore repris par un worker
-        WebhookEntityFactory::createOne([
-            'source' => SourceEnum::GITHUB,
+        WebhookEntryFactory::createOne([
+            'source' => GithubAdapter::NAME,
             'external_event_id' => 'delivery-received-0001',
             'payload' => json_encode(['action' => 'opened', 'ref' => 'refs/heads/main']),
             'headers' => $this->githubHeaders('push', 'delivery-received-0001'),
@@ -34,8 +37,8 @@ final class WebhookFixturesStory extends Story
         ]);
 
         // en cours de traitement par un worker
-        WebhookEntityFactory::createOne([
-            'source' => SourceEnum::GITHUB,
+        WebhookEntryFactory::createOne([
+            'source' => GithubAdapter::NAME,
             'external_event_id' => 'delivery-dispatched-0002',
             'payload' => json_encode(['action' => 'push', 'ref' => 'refs/heads/main']),
             'headers' => $this->githubHeaders('push', 'delivery-dispatched-0002'),
@@ -47,8 +50,8 @@ final class WebhookFixturesStory extends Story
         ]);
 
         // traité avec succès
-        WebhookEntityFactory::createOne([
-            'source' => SourceEnum::GITHUB,
+        WebhookEntryFactory::createOne([
+            'source' => GithubAdapter::NAME,
             'external_event_id' => 'delivery-succeeded-0003',
             'payload' => json_encode(['action' => 'opened', 'issue' => ['number' => 42]]),
             'headers' => $this->githubHeaders('issues', 'delivery-succeeded-0003'),
@@ -61,8 +64,8 @@ final class WebhookFixturesStory extends Story
 
         // échoué, mais le retry_strategy Messenger va le reprendre automatiquement
         // -> volontairement NON rejouable (cf. discussion PLAN.md jour 4)
-        WebhookEntityFactory::createOne([
-            'source' => SourceEnum::GITHUB,
+        WebhookEntryFactory::createOne([
+            'source' => GithubAdapter::NAME,
             'external_event_id' => 'delivery-failed-0004',
             'payload' => json_encode(['action' => 'push', 'ref' => 'refs/heads/main']),
             'headers' => $this->githubHeaders('push', 'delivery-failed-0004'),
@@ -74,8 +77,8 @@ final class WebhookFixturesStory extends Story
         ]);
 
         // retries épuisés, envoyé en DLQ -> celui-ci est rejouable
-        WebhookEntityFactory::createOne([
-            'source' => SourceEnum::GITHUB,
+        WebhookEntryFactory::createOne([
+            'source' => GithubAdapter::NAME,
             'external_event_id' => 'delivery-dead-0005',
             'payload' => json_encode(['action' => 'opened', 'issue' => ['number' => 7]]),
             'headers' => $this->githubHeaders('issues', 'delivery-dead-0005'),
@@ -87,8 +90,8 @@ final class WebhookFixturesStory extends Story
         ]);
 
         // signature invalide, persisté quand même (jour 2 : "les tentatives d'intrusion sont de l'information")
-        WebhookEntityFactory::createOne([
-            'source' => SourceEnum::GITHUB,
+        WebhookEntryFactory::createOne([
+            'source' => GithubAdapter::NAME,
             'external_event_id' => 'delivery-badsig-0006',
             'payload' => json_encode(['action' => 'push', 'ref' => 'refs/heads/main']),
             'headers' => $this->githubHeaders('push', 'delivery-badsig-0006', validSignature: false),
@@ -99,9 +102,9 @@ final class WebhookFixturesStory extends Story
             'version' => 1,
         ]);
 
-        // Stripe : supporté par l'architecture (SourceEnum, WebhookSigner) mais non branché
-        WebhookEntityFactory::createOne([
-            'source' => SourceEnum::STRIPE,
+        // Stripe : supporté par l'architecture (StripeAdapter) mais non branché
+        WebhookEntryFactory::createOne([
+            'source' => StripeAdapter::NAME,
             'external_event_id' => 'evt_1PfixtureStripe0007',
             'payload' => json_encode(['type' => 'payment_intent.succeeded', 'data' => ['object' => ['id' => 'pi_fixture0007']]]),
             'headers' => [
@@ -115,7 +118,7 @@ final class WebhookFixturesStory extends Story
             'version' => 1,
         ]);
 
-        WebhookEntityFactory::createMany(50);
+        WebhookEntryFactory::createMany(50);
     }
 
     /**

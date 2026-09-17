@@ -1,16 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Worker\Handler;
 
-use App\Enum\SourceEnum;
-use App\Tests\Factory\WebhookEntityFactory;
+use App\Tests\Factory\WebhookEntryFactory;
+use App\Webhook\Adapter\GithubAdapter;
+use App\Webhook\Adapter\StripeAdapter;
 use App\Worker\Handler\WebhookHandler;
-use App\Worker\Message\ProcessWebhookEvent;
 use Monolog\Handler\TestHandler;
 use Monolog\Level;
 use Monolog\Logger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
+use WebhookLedger\Application\Worker\Message\ProcessWebhookEvent;
 use Zenstruck\Foundry\Attribute\ResetDatabase;
 
 #[ResetDatabase]
@@ -35,13 +38,13 @@ final class WebhookHandlerTest extends KernelTestCase
     public function testInvokeHandlesGithubSource(): void
     {
         // Arrange
-        $webhook = WebhookEntityFactory::createOne([
-            'source' => SourceEnum::GITHUB,
+        $webhook = WebhookEntryFactory::createOne([
+            'source' => GithubAdapter::NAME,
             'headers' => ['x-github-event' => ['push']],
         ]);
 
         // Act
-        ($this->handler)(new ProcessWebhookEvent(uuid: $webhook->getUuid()));
+        ($this->handler)(new ProcessWebhookEvent(uuid: (string) $webhook->getUuid()));
 
         // Assert
         $this->assertTrue(
@@ -55,10 +58,10 @@ final class WebhookHandlerTest extends KernelTestCase
     public function testInvokeHandlesStripeSource(): void
     {
         // Arrange
-        $webhook = WebhookEntityFactory::createOne(['source' => SourceEnum::STRIPE]);
+        $webhook = WebhookEntryFactory::createOne(['source' => StripeAdapter::NAME]);
 
         // Act
-        ($this->handler)(new ProcessWebhookEvent(uuid: $webhook->getUuid()));
+        ($this->handler)(new ProcessWebhookEvent(uuid: (string) $webhook->getUuid()));
 
         // Assert
         $this->assertTrue(

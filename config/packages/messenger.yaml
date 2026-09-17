@@ -14,4 +14,4 @@ framework:
             failed: "doctrine://default?queue_name=failed&auto_setup=0"
 
         routing:
-            App\Worker\Message\ProcessWebhookEvent: async
+            WebhookLedger\Application\Worker\Message\ProcessWebhookEvent: async

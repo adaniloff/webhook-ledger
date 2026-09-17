@@ -1,20 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Worker\Handler;
 
-use App\Domain\WebhookLedgerRepositoryInterface;
-use App\Entity\WebhookEntity;
-use App\Enum\SourceEnum;
-use App\Worker\Message\ProcessWebhookEvent;
+use App\Webhook\Adapter\GithubAdapter;
+use App\Webhook\Adapter\StripeAdapter;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use WebhookLedger\Application\Worker\Message\ProcessWebhookEvent;
+use WebhookLedger\Domain\Contract\WebhookEntryInterface;
+use WebhookLedger\Domain\Contract\WebhookLedgerProjectionInterface;
 
 #[AsMessageHandler]
 final class WebhookHandler
 {
     public function __construct(
         private LoggerInterface $webhookLogger,
-        private WebhookLedgerRepositoryInterface $repository,
+        private WebhookLedgerProjectionInterface $repository,
     ) {
     }
 
@@ -24,15 +27,16 @@ final class WebhookHandler
 
         $webhook = $this->repository->findOneBy(['uuid' => $message->uuid]);
         match ($webhook?->getSource()) {
-            SourceEnum::STRIPE => $this->stripe(webhook: $webhook),
-            SourceEnum::GITHUB => $this->github(webhook: $webhook),
+            StripeAdapter::NAME => $this->stripe(webhook: $webhook),
+            GithubAdapter::NAME => $this->github(webhook: $webhook),
             null => $this->webhookLogger->warning(sprintf('Entity not found for uuid: %s', $message->uuid)),
+            default => $this->webhookLogger->warning(sprintf('Unknown source for uuid: %s', $message->uuid)),
         };
     }
 
-    private function stripe(WebhookEntity $webhook): void
+    private function stripe(WebhookEntryInterface $webhook): void
     {
-        $payload = json_decode($webhook->getPayload() ?? '', true);
+        $payload = json_decode($webhook->getPayload(), true);
         $type = is_array($payload) && is_string($payload['type'] ?? null) ? $payload['type'] : null;
 
         if ('payment_intent.succeeded' !== $type) {
@@ -44,7 +48,7 @@ final class WebhookHandler
         $this->webhookLogger->info('<payment_intent.succeeded> '.$webhook->getUuid());
     }
 
-    private function github(WebhookEntity $webhook): void
+    private function github(WebhookEntryInterface $webhook): void
     {
         /** @phpstan-ignore-next-line */
         $event = $webhook->getHeaders()['X-Github-Event'] ?? $webhook->getHeaders()['x-github-event'] ?? [];

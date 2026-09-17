@@ -1,19 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Controller;
 
-use App\Entity\WebhookEntity;
-use App\Enum\SourceEnum;
-use App\Enum\StatusEnum;
-use App\Receiver\Service\WebhookSigner;
-use App\Tests\Factory\WebhookEntityFactory;
+use App\Tests\Factory\WebhookEntryFactory;
 use Doctrine\DBAL\Connection;
-use Doctrine\ORM\EntityManagerInterface;
 use Monolog\Handler\TestHandler;
 use Monolog\Level;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Symfony\Component\Uid\Uuid;
 use Zenstruck\Foundry\Attribute\ResetDatabase;
 
 #[ResetDatabase]
@@ -21,13 +17,11 @@ final class WebhookControllerTest extends WebTestCase
 {
     private TestHandler $logger;
     private KernelBrowser $client;
-    private WebhookSigner $signer;
 
     public function setUp(): void
     {
         $this->client = static::createClient();
         $this->logger = self::getContainer()->get('test.log.handler');
-        $this->signer = self::getContainer()->get(WebhookSigner::class);
     }
 
     public function testHookReturns202(): void
@@ -37,7 +31,7 @@ final class WebhookControllerTest extends WebTestCase
             'some_things' => 'dae7da-40a7-4744-b8a2-beb413579c40',
         ];
         $raw = json_encode($payload, \JSON_PRESERVE_ZERO_FRACTION);
-        WebhookEntityFactory::assert()->count(0);
+        WebhookEntryFactory::assert()->count(0);
 
         // Act
         $this->client->jsonRequest(
@@ -46,7 +40,7 @@ final class WebhookControllerTest extends WebTestCase
             parameters: $payload,
             server: [
                 'HTTP_X_GitHub_Delivery' => 'helloword!',
-                'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, headers: [], source: SourceEnum::GITHUB),
+                'HTTP_X_HUB_SIGNATURE_256' => $this->githubSignature($raw),
             ],
         );
 
@@ -57,7 +51,7 @@ final class WebhookControllerTest extends WebTestCase
         $this->assertEmpty($this->client->getResponse()->getContent());
 
         // storage...
-        WebhookEntityFactory::assert()
+        WebhookEntryFactory::assert()
             ->count(1)
             ->exists(['signature_valid' => true])
         ;
@@ -67,7 +61,7 @@ final class WebhookControllerTest extends WebTestCase
             $this->logger->hasRecordThatContains(message: 'REQUEST BODY', level: Level::Debug),
         );
         $this->assertTrue(
-            $this->logger->hasRecordThatContains(message: 'source: '.SourceEnum::GITHUB->value, level: Level::Debug),
+            $this->logger->hasRecordThatContains(message: 'source: github', level: Level::Debug),
         );
         $this->assertTrue(
             $this->logger->hasRecordThatContains(message: 'payload: '.json_encode($payload), level: Level::Debug),
@@ -81,7 +75,7 @@ final class WebhookControllerTest extends WebTestCase
             'some_things' => 'dae7da-40a7-4744-b8a2-beb413579c40',
         ];
         $raw = json_encode($payload, \JSON_PRESERVE_ZERO_FRACTION);
-        WebhookEntityFactory::assert()->count(0);
+        WebhookEntryFactory::assert()->count(0);
 
         // Act
         $this->client->jsonRequest(
@@ -90,7 +84,7 @@ final class WebhookControllerTest extends WebTestCase
             parameters: $payload,
             server: [
                 'HTTP_X_GitHub_Delivery' => 'helloword!',
-                'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, headers: [], source: SourceEnum::STRIPE),
+                'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $raw, 'not-the-right-secret'),
             ],
         );
 
@@ -99,7 +93,7 @@ final class WebhookControllerTest extends WebTestCase
         $this->assertResponseStatusCodeSame(401);
 
         // storage...
-        WebhookEntityFactory::assert()
+        WebhookEntryFactory::assert()
             ->count(1)
             ->exists(['signature_valid' => false])
         ;
@@ -112,8 +106,7 @@ final class WebhookControllerTest extends WebTestCase
             'some_things' => 'dae7da-40a7-4744-b8a2-beb413579c40',
         ];
         $raw = json_encode($payload, \JSON_PRESERVE_ZERO_FRACTION);
-        $hmac = $this->signer->hash(raw: $raw, headers: [], source: SourceEnum::GITHUB);
-        WebhookEntityFactory::assert()->count(0);
+        WebhookEntryFactory::assert()->count(0);
 
         // Act
         $this->client->request(
@@ -121,7 +114,7 @@ final class WebhookControllerTest extends WebTestCase
             uri: '/webhook/github',
             server: [
                 'CONTENT_TYPE' => 'application/json',
-                'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$hmac,
+                'HTTP_X_HUB_SIGNATURE_256' => $this->githubSignature($raw),
             ],
             content: $raw,
         );
@@ -133,7 +126,7 @@ final class WebhookControllerTest extends WebTestCase
         $this->assertArrayHasKey('external_event_id', $response['fields']);
 
         // storage...
-        WebhookEntityFactory::assert()
+        WebhookEntryFactory::assert()
             ->count(1)
             ->exists(['signature_valid' => true])
         ;
@@ -147,7 +140,7 @@ final class WebhookControllerTest extends WebTestCase
             'some_things' => 'dae7da-40a7-4744-b8a2-beb413579c40',
         ];
         $raw = json_encode($payload, \JSON_PRESERVE_ZERO_FRACTION);
-        WebhookEntityFactory::assert()->count(0);
+        WebhookEntryFactory::assert()->count(0);
 
         // Act
         $count = 0;
@@ -159,7 +152,7 @@ final class WebhookControllerTest extends WebTestCase
                 parameters: $payload,
                 server: [
                     'HTTP_X_GitHub_Delivery' => 'helloword!',
-                    'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, headers: [], source: SourceEnum::GITHUB),
+                    'HTTP_X_HUB_SIGNATURE_256' => $this->githubSignature($raw),
                 ],
             );
             $eventId ??= $this->client->getResponse()->headers->get('X-Evt-Id');
@@ -173,7 +166,7 @@ final class WebhookControllerTest extends WebTestCase
         $this->assertSame($eventId, $this->client->getResponse()->headers->get('X-Evt-Id'));
 
         // storage...
-        WebhookEntityFactory::assert()
+        WebhookEntryFactory::assert()
             ->count(1) // only one line has been persisted
             ->exists(['signature_valid' => true])
         ;
@@ -186,7 +179,7 @@ final class WebhookControllerTest extends WebTestCase
             'some_things' => 'dae7da-40a7-4744-b8a2-beb413579c40',
         ];
         $raw = json_encode($payload, \JSON_PRESERVE_ZERO_FRACTION);
-        WebhookEntityFactory::assert()->count(0);
+        WebhookEntryFactory::assert()->count(0);
 
         // Act
         $count = 0;
@@ -197,7 +190,7 @@ final class WebhookControllerTest extends WebTestCase
                 parameters: $payload,
                 server: [
                     'HTTP_X_GitHub_Delivery' => 'helloword!',
-                    'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.$this->signer->hash(raw: $raw, headers: [], source: SourceEnum::STRIPE),
+                    'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $raw, 'not-the-right-secret'),
                 ],
             );
         } while (++$count < 5);
@@ -207,75 +200,24 @@ final class WebhookControllerTest extends WebTestCase
         $this->assertResponseStatusCodeSame(401);
 
         // storage...
-        WebhookEntityFactory::assert()
+        WebhookEntryFactory::assert()
             ->count(1)
             ->exists(['signature_valid' => false])
         ;
     }
 
-    public function testReplayReturns404WhenWebhookNotFound(): void
+    public function testHookReturns404OnUnknownSource(): void
     {
-        // Arrange
         // Act
-        $this->client->jsonRequest(method: 'POST', uri: '/webhook/'.Uuid::v7().'?version=1');
+        $this->client->jsonRequest(method: 'POST', uri: '/webhook/unknown-provider', parameters: ['a' => 'b']);
 
         // Assert
         $this->assertResponseStatusCodeSame(404);
     }
 
-    public function testReplayReturns409WhenWebhookNotReplayable(): void
+    private function githubSignature(string $raw): string
     {
-        // Arrange
-        $webhook = WebhookEntityFactory::createOne([
-            'status' => StatusEnum::FAILED,
-            'signature_valid' => true,
-            'version' => 1,
-        ]);
-
-        // Act
-        $this->client->jsonRequest(method: 'POST', uri: '/webhook/'.$webhook->getUuid().'?version=1');
-
-        // Assert
-        $this->assertResponseStatusCodeSame(409);
-    }
-
-    public function testReplayReturns409WhenWebhookOutdated(): void
-    {
-        // Arrange
-        $uuid = WebhookEntityFactory::createOne(['status' => StatusEnum::DEAD, 'signature_valid' => true])->getUuid();
-
-        //
-        // Doctrine override version number set through Foundry
-        // --> must update or insert through Doctrine directly
-        //
-        $em = self::getContainer()->get(EntityManagerInterface::class);
-        $metadata = $em->getClassMetadata(WebhookEntity::class);
-        $rowCount = $em->getConnection()
-            ->executeStatement("UPDATE {$metadata->getTableName()} SET version = 5");
-        $this->assertEquals(1, $rowCount);
-
-        // Act
-        $this->client->jsonRequest(method: 'POST', uri: '/webhook/'.$uuid.'?version=2');
-
-        // Assert
-        $this->assertResponseStatusCodeSame(409);
-    }
-
-    public function testReplayReturns202OnSuccess(): void
-    {
-        // Arrange
-        $webhook = WebhookEntityFactory::createOne([
-            'status' => StatusEnum::DEAD,
-            'signature_valid' => true,
-            'version' => 1,
-        ]);
-
-        // Act
-        $this->client->jsonRequest(method: 'POST', uri: '/webhook/'.$webhook->getUuid().'?version=1');
-
-        // Assert
-        $this->assertResponseStatusCodeSame(202);
-        $this->assertSame((string) $webhook->getUuid(), $this->client->getResponse()->headers->get('X-Evt-Id'));
+        return 'sha256='.hash_hmac('sha256', $raw, (string) $_ENV['GITHUB_WEBHOOK_SECRET']);
     }
 
     private function countMessengerMessages(): int

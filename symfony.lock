@@ -227,6 +227,9 @@
             "config/routes/web_profiler.yaml"
         ]
     },
+    "webhook-ledger/webhook-ledger-bundle": {
+        "version": "dev-main"
+    },
     "zenstruck/foundry": {
         "version": "2.12",
         "recipe": {

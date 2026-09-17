@@ -27,7 +27,8 @@
         "symfony/twig-bundle": "7.4.*",
         "symfony/uid": "7.4.*",
         "symfony/validator": "7.4.*",
-        "symfony/yaml": "7.4.*"
+        "symfony/yaml": "7.4.*",
+        "webhook-ledger/webhook-ledger-bundle": "^1.0.1"
     },
     "config": {
         "allow-plugins": {
@@ -36,7 +37,11 @@
             "symfony/runtime": true
         },
         "bump-after-update": true,
-        "sort-packages": true
+        "sort-packages": true,
+        "preferred-install": {
+            "webhook-ledger/webhook-ledger-bundle": "source",
+            "*": "dist"
+        }
     },
     "autoload": {
         "psr-4": {
@@ -89,5 +94,10 @@
         "symfony/stopwatch": "7.4.*",
         "symfony/web-profiler-bundle": "7.4.*",
         "zenstruck/foundry": "^2.12"
-    }
+    },
+    "repositories": [{
+        "name": "webhook-ledger-bundle",
+        "type": "vcs",
+        "url": "git@github.com:adaniloff/webhook-ledger-bundle.git"
+    }]
 }
