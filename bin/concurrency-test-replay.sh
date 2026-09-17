@@ -10,7 +10,7 @@ UUID=$(compose php php -r 'require "vendor/autoload.php"; echo (string) Symfony\
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
 
 compose database mysql -uapp -papp app -e "
-    INSERT INTO webhook_entity
+    INSERT INTO webhook_entry
         (uuid, source, external_event_id, payload, headers, signature_valid, status, attempts, last_error, received_at, updated_at, version)
     VALUES
         ('$UUID', 'github', 'concurrency-replay-$UUID', '{}', '{}', 1, 'dead', 6, 'simulated failure', '$NOW', '$NOW', 1);
@@ -30,8 +30,8 @@ wait "$replay2"
 code2=$?
 set -e
 
-VERSION=$(sql_scalar "SELECT version FROM webhook_entity WHERE uuid='$UUID';")
-compose database mysql -uapp -papp app -e "DELETE FROM webhook_entity WHERE uuid='$UUID';" >/dev/null 2>&1
+VERSION=$(sql_scalar "SELECT version FROM webhook_entry WHERE uuid='$UUID';")
+compose database mysql -uapp -papp app -e "DELETE FROM webhook_entry WHERE uuid='$UUID';" >/dev/null 2>&1
 
 successes=$(((code1 == 0) + (code2 == 0)))
 if [ "$successes" -eq 1 ] && [ "$VERSION" -eq 2 ]; then

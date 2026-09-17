@@ -29,7 +29,7 @@ for some explanations, issues I've encountered, trade-offs I've chosen to take.
 - (test) setting up the concurrency test scripts.
 - (test) building a set of fixtures.
 - (arch) quicken the Github/Stripe signature ascertainment.
-- (prod) generating the `WebhookEntity` and `WebhookDto`.
+- (prod) generating the `WebhookEntry` and `WebhookInputDto`.
 - (chores) generating part of this README.
 
 I wanted not to overuse it, as the goal was, like I said, to explore by myself.
@@ -39,7 +39,7 @@ I wanted not to overuse it, as the goal was, like I said, to explore by myself.
 ```mermaid
 flowchart TD
     A["Stripe / GitHub<br/>POST /webhook/{source}"] --> B{"Signature valid?<br/>(constant-time HMAC)"}
-    B -->|raw body read once,<br/>persisted whatever the verdict| C["INSERT webhook_entity<br/>(DBAL, status=received)"]
+    B -->|raw body read once,<br/>persisted whatever the verdict| C["INSERT webhook_entry<br/>(DBAL, status=received)"]
     C --> D{"signature_valid?"}
     D -->|no| E["202 Accepted<br/>(not dispatched)"]
     D -->|"yes, same DB transaction (atomicity)"| F["dispatch ProcessWebhookEvent(uuid)<br/>into messenger_messages"]
@@ -47,7 +47,7 @@ flowchart TD
 
     F --> G["messenger:consume workers<br/>(N processes, FOR UPDATE SKIP LOCKED<br/>under the hood)"]
     G --> H["WebhookHandler<br/>loads the row by uuid"]
-    H --> I["HandlerListener<br/>updates webhook_entity.status<br/>from Messenger lifecycle events"]
+    H --> I["WorkerProgressListener<br/>updates webhook_entry.status<br/>from Messenger lifecycle events"]
     I -->|ok| S["succeeded"]
     I -->|throws, retries left| RT["failed<br/>(automatic retry, backoff + jitter)"]
     RT -.retries exhausted.-> DEAD["dead<br/>(failure_transport / DLQ)"]
@@ -59,11 +59,6 @@ flowchart TD
 ```
 
 Only the UUID travels to the queue. The database row *stays* the single source of truth.
-
-## Requirements
-
-- PHP >= 8.2
-- MariaDB > 10.6
 
 ## Stack
 
@@ -107,31 +102,9 @@ curl -X POST http://localhost:8080/webhook/github \
 
 ## Decisions
 
-- **Raw DBAL `INSERT` for the ledger write (not the ORM).** Catching
-`UniqueConstraintViolationException` through Doctrine's `EntityManager` closes it, which forces
-rebuilding it mid-HTTP-request just to keep going. A simple DBAL `INSERT`, catch the violation, 
-respond `202` either way. Deduplication is enforced by a unique index on `(source, external_event_id)`.
-
-- **No home-grown poller reading the ledger.** The default design is often a worker doing
-`SELECT ... WHERE status='received' ... FOR UPDATE SKIP LOCKED`. What's built here: `Receiver`
-writes the ledger row *and* dispatches the `ProcessWebhookEvent` message **in the same DBAL
-transaction**. 
-
-    Symfony's Doctrine Messenger transport (`messenger_messages`) plays the role of the
-    outbox - it already has its own `SKIP LOCKED`-style concurrent consumption, retry strategy and
-    `failure_transport`, so there was no reason to hand-roll it.
-
 - **Retry with exponential backoff and jitter, dead-letter on exhaustion.** See `config/packages/messenger.yaml`.
 Why the jitter? Without it, a burst of failures all retry in lockstep and hit the
 downstream dependency at the same instant.
-
-- **Replay is restricted to `dead`, not `failed`.** A `failed` webhook already has an automatic
-retry scheduled by Symfony's Messenger component. Only `dead` - retries exhausted - is safe to replay.
-
-- **Optimistic locking on replay.** The `version` column (Doctrine `#[ORM\Version]`) guards the
-replay path: two simultaneous replay clicks on the same event, one succeeds, the other gets an
-`OptimisticLockException` translated into a clear rejection (`WebhookOutdatedException`) rather
-than a second dispatch.
 
 - **Constant-time signature verification, per source.** An invalid signature still gets persisted
 (`signature_valid = false`) as intel (and returns `401`), but is never dispatched to a worker.
@@ -141,7 +114,7 @@ than a second dispatch.
 Three scenarios, driven by shell scripts (`xargs -P`, no load-testing tool needed), run against
 the live stack:
 
-- **N parallel requests, same `external_event_id`** → exactly one row in `webhook_entity`
+- **N parallel requests, same `external_event_id`** → exactly one row in `webhook_entry`
   (`bin/concurrency-test-dedup.sh`).
 - **Two workers consuming the same queue** → no event handled twice
   (`bin/concurrency-test-workers.sh`).
@@ -163,8 +136,6 @@ Deliberately out of scope for this iteration, not forgotten:
 - No multi-tenancy.
 - No automatic data purge.
 
-## Improvements I'm working on:
+## Improvements (todo-list)
 
-- Dissociating reception / worker with a better DDD approach-like.
 - Reworking the frontend as a React or VueJS SPA.
-- Making a Symfony bundle out of it.

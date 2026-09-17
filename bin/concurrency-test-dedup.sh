@@ -17,8 +17,8 @@ seq "$N" | xargs -P "$N" -I{} curl -s -o /dev/null -L -X POST "$BASE_URL/webhook
     -H "X-Hub-Signature-256: sha256=$SIGNATURE" \
     --data-raw "$RAW"
 
-COUNT=$(sql_scalar "SELECT COUNT(*) FROM webhook_entity WHERE external_event_id='$DELIVERY';")
-compose database mysql -uapp -papp app -e "DELETE FROM webhook_entity WHERE external_event_id='$DELIVERY';" >/dev/null 2>&1
+COUNT=$(sql_scalar "SELECT COUNT(*) FROM webhook_entry WHERE external_event_id='$DELIVERY';")
+compose database mysql -uapp -papp app -e "DELETE FROM webhook_entry WHERE external_event_id='$DELIVERY';" >/dev/null 2>&1
 
 if [ "$COUNT" -eq 1 ]; then
     ok "$N concurrent requests -> $COUNT row"

@@ -22,8 +22,8 @@ compose php bin/console messenger:consume async --limit=1 --time-limit=10 -q &
 worker2=$!
 wait "$worker1" "$worker2"
 
-read -r STATUS ATTEMPTS <<<"$(sql_scalar "SELECT status, attempts FROM webhook_entity WHERE external_event_id='$DELIVERY';" | tr '\t' ' ')"
-compose database mysql -uapp -papp app -e "DELETE FROM webhook_entity WHERE external_event_id='$DELIVERY';" >/dev/null 2>&1
+read -r STATUS ATTEMPTS <<<"$(sql_scalar "SELECT status, attempts FROM webhook_entry WHERE external_event_id='$DELIVERY';" | tr '\t' ' ')"
+compose database mysql -uapp -papp app -e "DELETE FROM webhook_entry WHERE external_event_id='$DELIVERY';" >/dev/null 2>&1
 
 if [ "$STATUS" = "s" ] && [ "$ATTEMPTS" -eq 1 ]; then
     ok "événement traité une seule fois (status=$STATUS attempts=$ATTEMPTS)"
