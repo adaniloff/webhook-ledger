@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1515f935b23205604f2a5015f320ce31",
+    "content-hash": "6635b79bc2e63ec4af7fc2c1823c41de",
     "packages": [
         {
             "name": "doctrine/collections",
@@ -5848,18 +5848,14 @@
                     "WebhookLedger\\": "src/"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "WebhookLedger\\Tests\\": "tests/"
-                }
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "proprietary"
             ],
             "description": "Idempotent webhooks consumption with retries and replays, through transactional outbox, using Doctrine and Symfony messenger.",
             "support": {
-                "source": "https://github.com/adaniloff/webhook-ledger-bundle/tree/v1.0.2",
-                "issues": "https://github.com/adaniloff/webhook-ledger-bundle/issues"
+                "issues": "https://github.com/adaniloff/webhook-ledger-bundle/issues",
+                "source": "https://github.com/adaniloff/webhook-ledger-bundle/tree/v1.0.2"
             },
             "time": "2026-09-17T11:52:02+00:00"
         },

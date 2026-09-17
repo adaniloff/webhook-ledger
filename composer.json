@@ -94,10 +94,5 @@
         "symfony/stopwatch": "7.4.*",
         "symfony/web-profiler-bundle": "7.4.*",
         "zenstruck/foundry": "^2.12"
-    },
-    "repositories": [{
-        "name": "webhook-ledger-bundle",
-        "type": "vcs",
-        "url": "git@github.com:adaniloff/webhook-ledger-bundle.git"
-    }]
+    }
 }
