@@ -21,7 +21,7 @@ final class WebhookReplayControllerTest extends WebTestCase
         $client = static::createClient();
 
         // Act
-        $client->jsonRequest(method: 'POST', uri: '/webhook/'.Uuid::v7().'?version=1');
+        $client->jsonRequest(method: 'POST', uri: '/webhook/replay/'.Uuid::v7().'?version=1');
 
         // Assert
         $this->assertResponseStatusCodeSame(404);
@@ -38,7 +38,7 @@ final class WebhookReplayControllerTest extends WebTestCase
         ]);
 
         // Act
-        $client->jsonRequest(method: 'POST', uri: '/webhook/'.$webhook->getUuid().'?version=1');
+        $client->jsonRequest(method: 'POST', uri: '/webhook/replay/'.$webhook->getUuid().'?version=1');
 
         // Assert
         $this->assertResponseStatusCodeSame(409);
@@ -61,7 +61,7 @@ final class WebhookReplayControllerTest extends WebTestCase
         $this->assertEquals(1, $rowCount);
 
         // Act
-        $client->jsonRequest(method: 'POST', uri: '/webhook/'.$uuid.'?version=2');
+        $client->jsonRequest(method: 'POST', uri: '/webhook/replay/'.$uuid.'?version=2');
 
         // Assert
         $this->assertResponseStatusCodeSame(409);
@@ -78,7 +78,7 @@ final class WebhookReplayControllerTest extends WebTestCase
         ]);
 
         // Act
-        $client->jsonRequest(method: 'POST', uri: '/webhook/'.$webhook->getUuid().'?version=1');
+        $client->jsonRequest(method: 'POST', uri: '/webhook/replay/'.$webhook->getUuid().'?version=1');
 
         // Assert
         $this->assertResponseStatusCodeSame(202);

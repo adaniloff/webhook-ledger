@@ -36,7 +36,7 @@ final class WebhookControllerTest extends WebTestCase
         // Act
         $this->client->jsonRequest(
             method: 'POST',
-            uri: '/webhook/github',
+            uri: '/wl/webhook/github',
             parameters: $payload,
             server: [
                 'HTTP_X_GitHub_Delivery' => 'helloword!',
@@ -80,7 +80,7 @@ final class WebhookControllerTest extends WebTestCase
         // Act
         $this->client->jsonRequest(
             method: 'POST',
-            uri: '/webhook/github',
+            uri: '/wl/webhook/github',
             parameters: $payload,
             server: [
                 'HTTP_X_GitHub_Delivery' => 'helloword!',
@@ -111,7 +111,7 @@ final class WebhookControllerTest extends WebTestCase
         // Act
         $this->client->request(
             method: 'POST',
-            uri: '/webhook/github',
+            uri: '/wl/webhook/github',
             server: [
                 'CONTENT_TYPE' => 'application/json',
                 'HTTP_X_HUB_SIGNATURE_256' => $this->githubSignature($raw),
@@ -148,7 +148,7 @@ final class WebhookControllerTest extends WebTestCase
         do {
             $this->client->jsonRequest(
                 method: 'POST',
-                uri: '/webhook/github',
+                uri: '/wl/webhook/github',
                 parameters: $payload,
                 server: [
                     'HTTP_X_GitHub_Delivery' => 'helloword!',
@@ -186,7 +186,7 @@ final class WebhookControllerTest extends WebTestCase
         do {
             $this->client->jsonRequest(
                 method: 'POST',
-                uri: '/webhook/github',
+                uri: '/wl/webhook/github',
                 parameters: $payload,
                 server: [
                     'HTTP_X_GitHub_Delivery' => 'helloword!',
@@ -209,7 +209,7 @@ final class WebhookControllerTest extends WebTestCase
     public function testHookReturns404OnUnknownSource(): void
     {
         // Act
-        $this->client->jsonRequest(method: 'POST', uri: '/webhook/unknown-provider', parameters: ['a' => 'b']);
+        $this->client->jsonRequest(method: 'POST', uri: '/wl/webhook/unknown-provider', parameters: ['a' => 'b']);
 
         // Assert
         $this->assertResponseStatusCodeSame(404);

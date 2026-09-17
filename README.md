@@ -16,6 +16,11 @@ Since this is just a demo project, you can bypass the Basic Auth with the follow
 - user: `demo`
 - password: `OddMeEvenYou`
 
+## Reusable bundle
+
+This project only serves to demonstrate & illustrate how you can use [bundle](https://github.com/adaniloff/webhook-ledger-bundle).
+A lot of concepts here are inherent of this bundle.
+
 ## Why
 
 Since discovering the `Dual Write` issue, I've wanted to set up a boilerplate for Symfony-like
@@ -29,7 +34,6 @@ for some explanations, issues I've encountered, trade-offs I've chosen to take.
 - (test) setting up the concurrency test scripts.
 - (test) building a set of fixtures.
 - (arch) quicken the Github/Stripe signature ascertainment.
-- (prod) generating the `WebhookEntry` and `WebhookInputDto`.
 - (chores) generating part of this README.
 
 I wanted not to overuse it, as the goal was, like I said, to explore by myself.
@@ -38,7 +42,7 @@ I wanted not to overuse it, as the goal was, like I said, to explore by myself.
 
 ```mermaid
 flowchart TD
-    A["Stripe / GitHub<br/>POST /webhook/{source}"] --> B{"Signature valid?<br/>(constant-time HMAC)"}
+    A["Stripe / GitHub<br/>POST /wl/webhook/{source}"] --> B{"Signature valid?<br/>(constant-time HMAC)"}
     B -->|raw body read once,<br/>persisted whatever the verdict| C["INSERT webhook_entry<br/>(DBAL, status=received)"]
     C --> D{"signature_valid?"}
     D -->|no| E["202 Accepted<br/>(not dispatched)"]
@@ -52,7 +56,7 @@ flowchart TD
     I -->|throws, retries left| RT["failed<br/>(automatic retry, backoff + jitter)"]
     RT -.retries exhausted.-> DEAD["dead<br/>(failure_transport / DLQ)"]
 
-    DEAD --> R["POST /webhook/{uuid}?version=n<br/>(replay, only if status=dead)"]
+    DEAD --> R["POST /webhook/replay/{uuid}?version=n<br/>(replay, only if status=dead)"]
     R --> RC{"optimistic lock<br/>on version?"}
     RC -->|stale version| RE["rejected:<br/>WebhookOutdatedException"]
     RC -->|current version| RS["status back to received<br/>+ re-dispatched"]
@@ -76,7 +80,7 @@ just du          # start the stack (alias for docker-up)
 just console d:m:m --no-interaction  # run migrations
 just test        # PHPUnit
 just stan        # PHPStan, level max
-just cs          # php-cs-fixer, dry-run by default
+just cs fix      # php-cs-fixer
 ```
 
 `GITHUB_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_SECRET` are read from the `.env.local` file.
@@ -85,7 +89,7 @@ Signing a request by hand for local testing:
 ```bash
 BODY='{"hello":"world"}'
 SIG=$(php -r 'echo hash_hmac("sha256", $argv[1], "your-local-secret");' "$BODY")
-curl -X POST http://localhost:8080/webhook/github \
+curl -X POST http://localhost:8080/wl/webhook/github \
     -H "X-GitHub-Delivery: test-1" \
     -H "X-Hub-Signature-256: sha256=$SIG" \
     --data-raw "$BODY"
@@ -95,8 +99,8 @@ curl -X POST http://localhost:8080/webhook/github \
 
 | Method | Path                          | Description                                            |
 |--------|-------------------------------|----------------------------------------------------------|
-| POST   | `/webhook/{source}`                      | Receive a webhook. `source` is `stripe` or `github`.    |
-| POST   | `/webhook/{uuid}?version=n`              | Replay a `dead` webhook, guarded by **optimistic locking**.  |
+| POST   | `/wl/webhook/{source}`                   | Receive a webhook. `source` is `stripe` or `github`.    |
+| POST   | `/webhook/replay/{uuid}?version=n`       | Replay a `dead` webhook, guarded by **optimistic locking**.  |
 | GET    | `/`                                      | Dashboard: list of webhooks + replay button on dead ones.    |
 | GET    | `/health`                                | 204 if the database connection is up, 503 otherwise.     |
 

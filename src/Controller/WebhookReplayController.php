@@ -19,7 +19,7 @@ use WebhookLedger\Domain\ValueObject\WebhookUuid;
 final class WebhookReplayController extends AbstractController
 {
     #[Route(
-        path: '/webhook/{uuid}',
+        path: '/webhook/replay/{uuid}',
         name: 'webhook_replay',
         methods: ['POST'],
         format: 'json',

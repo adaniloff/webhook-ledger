@@ -28,7 +28,7 @@
         "symfony/uid": "7.4.*",
         "symfony/validator": "7.4.*",
         "symfony/yaml": "7.4.*",
-        "webhook-ledger/webhook-ledger-bundle": "^1.0.1"
+        "webhook-ledger/webhook-ledger-bundle": "^1.0.2"
     },
     "config": {
         "allow-plugins": {

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f4f83407a164f6d5739ef24dbacede1f",
+    "content-hash": "1515f935b23205604f2a5015f320ce31",
     "packages": [
         {
             "name": "doctrine/collections",
@@ -5802,16 +5802,16 @@
         },
         {
             "name": "webhook-ledger/webhook-ledger-bundle",
-            "version": "v1.0.1",
+            "version": "v1.0.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/adaniloff/webhook-ledger-bundle.git",
-                "reference": "24a4f591f0ba2ab3dca479ed38bcdb0c7290b5f4"
+                "reference": "7a6d179eb65af06549b01bc8a783be076615c3ce"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/adaniloff/webhook-ledger-bundle/zipball/24a4f591f0ba2ab3dca479ed38bcdb0c7290b5f4",
-                "reference": "24a4f591f0ba2ab3dca479ed38bcdb0c7290b5f4",
+                "url": "https://api.github.com/repos/adaniloff/webhook-ledger-bundle/zipball/7a6d179eb65af06549b01bc8a783be076615c3ce",
+                "reference": "7a6d179eb65af06549b01bc8a783be076615c3ce",
                 "shasum": ""
             },
             "require": {
@@ -5858,10 +5858,10 @@
             ],
             "description": "Idempotent webhooks consumption with retries and replays, through transactional outbox, using Doctrine and Symfony messenger.",
             "support": {
-                "source": "https://github.com/adaniloff/webhook-ledger-bundle/tree/v1.0.1",
+                "source": "https://github.com/adaniloff/webhook-ledger-bundle/tree/v1.0.2",
                 "issues": "https://github.com/adaniloff/webhook-ledger-bundle/issues"
             },
-            "time": "2026-09-17T08:58:17+00:00"
+            "time": "2026-09-17T11:52:02+00:00"
         },
         {
             "name": "webmozart/assert",
