@@ -18,8 +18,8 @@ Since this is just a demo project, you can bypass the Basic Auth with the follow
 
 ## Reusable bundle
 
-This project only serves to demonstrate & illustrate how you can use [bundle](https://github.com/adaniloff/webhook-ledger-bundle).
-A lot of concepts here are inherent of this bundle.
+This project only serves to demonstrate how you can use [the webhook-ledger-bundle](https://github.com/adaniloff/webhook-ledger-bundle).
+A lot of concepts documented here actually belong to that bundle.
 
 ## Why
 
